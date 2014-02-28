@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Positional lighting</title>
+        <style>
+            span {
+                display: inline-block;
+                width: 50px;
+            }
+        </style>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+
+            uniform vec3 uLightPosition;
+
+            varying vec3 vNormal;
+            varying vec3 vLightRay;
+            varying vec3 vEyeVec;
+
+            void main(void) {
+                vec4 vertex = uMVMatrix * vec4(aVertexPosition, 1.0);
+                vNormal = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+                vec4 light = uMVMatrix * vec4(uLightPosition, 1.0);
+                vLightRay = vertex.xyz - light.xyz;
+                vEyeVec = -vec3(vertex.xyz);
+
+                gl_Position = uPMatrix * vertex;
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            uniform vec4 uLightAmbient;
+            uniform vec4 uLightDiffuse;
+            uniform vec4 uLightSpecular;
+
+            uniform vec4 uMaterialAmbient;
+            uniform vec4 uMaterialDiffuse;
+            uniform vec4 uMaterialSpecular;
+            uniform float uShininess;
+
+            varying vec3 vNormal;
+            varying vec3 vLightRay;
+            varying vec3 vEyeVec;
+
+            void main(void) {
+                vec3 L = normalize(vLightRay);
+                vec3 N = normalize(vNormal);
+
+                float lambertTerm = dot(N, -L);
+
+                vec4 Ia = uLightAmbient * uMaterialAmbient;
+                vec4 Id = vec4(0.0, 0.0, 0.0, 1.0);
+                vec4 Is = vec4(0.0, 0.0, 0.0, 1.0);
+
+                if (lambertTerm > 0.0) {
+                    Id = uLightDiffuse * uMaterialDiffuse * lambertTerm;
+                    vec3 E = normalize(vEyeVec);
+                    vec3 R = reflect(L, N);
+                    float specular = pow(max(dot(R, E), 0.0), uShininess);
+                    Is = uLightSpecular * uMaterialSpecular * specular;
+                }
+
+                vec4 finalColor = Ia + Id + Is;
+                finalColor.a = 1.0;
+
+                gl_FragColor = finalColor;
+            }
+        </script>
+
+        <script src="library/gl-matrix-min.js"></script>
+        <script src="library/utils.js"></script>
+        <script>
+            var gl = null; // WebGL context
+            var prg = null; // The program (shaders)
+            var c_width = 0; // Variable to store the width of the canvas
+            var c_height = 0; // Variable to store the height of the canvas
+
+            var mvMatrix = mat4.create(); // The Model-View matrix
+            var pMatrix = mat4.create(); // The projection matrix
+            var nMatrix =  mat4.create();      // The normal matrix
+
+            var distance = -40;
+            var animateFlag = false;
+
+            var objects = [];
+
+            /**
+            * The program contains a series of instructions that tell the Graphic Processing Unit (GPU)
+            * what to do with every vertex and fragment that we pass it.
+            * The vertex shader and the fragment shader together are called the program.
+            */
+            function initProgram() {
+                var fragmentShader = utils.getShader(gl, "shader-fs");
+                var vertexShader = utils.getShader(gl, "shader-vs");
+
+                prg = gl.createProgram();
+                gl.attachShader(prg, vertexShader);
+                gl.attachShader(prg, fragmentShader);
+                gl.linkProgram(prg);
+
+                if (!gl.getProgramParameter(prg, gl.LINK_STATUS)) {
+                    alert("Could not initialise shaders");
+                    return;
+                }
+
+                gl.useProgram(prg);
+
+                prg.aVertexPosition     = gl.getAttribLocation(prg, "aVertexPosition");
+                prg.aVertexNormal       = gl.getAttribLocation(prg, "aVertexNormal");
+
+                prg.uPMatrix            = gl.getUniformLocation(prg, "uPMatrix");
+                prg.uMVMatrix           = gl.getUniformLocation(prg, "uMVMatrix");
+                prg.uNMatrix            = gl.getUniformLocation(prg, "uNMatrix");
+
+
+                prg.uMaterialAmbient    = gl.getUniformLocation(prg, "uMaterialAmbient");
+                prg.uMaterialDiffuse    = gl.getUniformLocation(prg, "uMaterialDiffuse");
+                prg.uMaterialSpecular   = gl.getUniformLocation(prg, "uMaterialSpecular");
+                prg.uShininess          = gl.getUniformLocation(prg, "uShininess");
+
+
+                prg.uLightPosition      = gl.getUniformLocation(prg, "uLightPosition");
+                prg.uLightAmbient       = gl.getUniformLocation(prg, "uLightAmbient");
+                prg.uLightDiffuse       = gl.getUniformLocation(prg, "uLightDiffuse");
+                prg.uLightSpecular      = gl.getUniformLocation(prg, "uLightSpecular");
+            }
+
+
+            function initLights(){
+                //Light uniforms
+                gl.uniform3fv(prg.uLightPosition,[4.5,3.0,15.0]);
+                gl.uniform4f(prg.uLightAmbient ,1.0,1.0,1.0,1.0);
+                gl.uniform4f(prg.uLightDiffuse,1.0,1.0,1.0,1.0);
+                gl.uniform4f(prg.uLightSpecular,1.0,1.0,1.0,1.0);
+
+                //Object Uniforms
+                gl.uniform4f(prg.uMaterialAmbient, 0.1,0.1,0.1,1.0);
+                gl.uniform4f(prg.uMaterialDiffuse, 0.5,0.8,0.1,1.0);
+                gl.uniform4f(prg.uMaterialSpecular, 0.6,0.6,0.6,1.0);
+                gl.uniform1f(prg.uShininess, 200.0);
+            }
+
+            /**
+            * Creates an AJAX request to load the scene asynchronously
+            */
+            function loadScene(){
+                loadObject('models/geometry/plane.json');
+                loadObject('models/geometry/cone.json','cone');
+                loadObject('models/geometry/sphere.json','sphere');
+                loadObject('models/geometry/smallsph.json','lightsource');
+            }
+
+            function getObject(alias){
+                for(var i=0; i<objects.length; i++){
+                    if (alias == objects[i].alias) return objects[i];
+                }
+                return null;
+            }
+
+            /**
+            * Ajax and JSON in action
+            */
+
+            function loadObject(filename,alias){
+                var request = new XMLHttpRequest();
+                console.info('Requesting ' + filename);
+                request.open("GET",filename);
+
+                request.onreadystatechange = function() {
+                if (request.readyState == 4) {
+                    if(request.status == 404) {
+                        console.info(filename + ' does not exist');
+                    }
+                    else {
+            var o = JSON.parse(request.responseText);
+            o.alias = (alias==null)?'none':alias;
+                        handleLoadedObject(filename,o);
+                    }
+                }
+                }
+                request.send();
+            }
+
+            /**
+            * Creates the buffers that contain the geometry of the object
+            */
+            function handleLoadedObject(filename,object) {
+
+                console.info(filename + ' has been retrieved from the server');
+
+                var vertexBufferObject = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferObject);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(object.vertices), gl.STATIC_DRAW);
+
+
+                var normalBufferObject = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, normalBufferObject);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(utils.calculateNormals(object.vertices, object.indices)), gl.STATIC_DRAW);
+
+                var indexBufferObject = gl.createBuffer();
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferObject);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(object.indices), gl.STATIC_DRAW);
+
+
+                object.vbo = vertexBufferObject;
+                object.ibo = indexBufferObject;
+                object.nbo = normalBufferObject;
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                gl.bindBuffer(gl.ARRAY_BUFFER,null);
+
+                objects.push(object);
+            }
+
+            /**
+            * Main rendering function. Called every 500ms according to WebGLStart function (see below)
+            */
+            function drawScene() {
+                gl.clearColor(0.3,0.3,0.3, 1.0);
+                gl.clearDepth(100.0);
+                gl.enable(gl.DEPTH_TEST);
+                gl.depthFunc(gl.LEQUAL);
+                gl.viewport(0, 0, c_width, c_height);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                mat4.perspective(30, c_width / c_height, 0.1, 1000.0, pMatrix);
+
+                try{
+                    gl.enableVertexAttribArray(prg.aVertexPosition);
+                    gl.enableVertexAttribArray(prg.aVertexNormal);
+                    for (var i = 0; i < objects.length; i++){
+                        var object = objects[i];
+                        mat4.identity(mvMatrix);
+                        mat4.translate(mvMatrix, [0.0, 0.0, distance]); //Sets the camera to a reasonable distance to view the part
+                        mat4.rotate(mvMatrix, 30*Math.PI/180, [1,0,0]);
+                        mat4.rotate(mvMatrix, angle*Math.PI/180, [0,1,0]);
+                        if (object.alias == 'lightsource'){
+                            var lightPos = gl.getUniform(prg, prg.uLightPosition);
+                            mat4.translate(mvMatrix,lightPos);
+
+                        }
+
+                        gl.uniformMatrix4fv(prg.uMVMatrix, false, mvMatrix);
+                        gl.uniformMatrix4fv(prg.uPMatrix, false, pMatrix);
+                        mat4.set(mvMatrix, nMatrix);
+                        mat4.inverse(nMatrix);
+                        mat4.transpose(nMatrix);
+
+                        gl.uniformMatrix4fv(prg.uNMatrix, false, nMatrix);
+                        gl.uniform4fv(prg.uMaterialAmbient, object.ambient);
+                        gl.uniform4fv(prg.uMaterialDiffuse, object.diffuse);
+                        gl.uniform4fv(prg.uMaterialSpecular, object.specular);
+                        gl.bindBuffer(gl.ARRAY_BUFFER, object.vbo);
+                        gl.vertexAttribPointer(prg.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+                        gl.enableVertexAttribArray(prg.aVertexPosition);
+
+                        gl.bindBuffer(gl.ARRAY_BUFFER, object.nbo);
+                        gl.vertexAttribPointer(prg.aVertexNormal, 3, gl.FLOAT, false, 0, 0);
+                        gl.enableVertexAttribArray(prg.aVertexNormal);
+
+                        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object.ibo);
+                        gl.drawElements(gl.TRIANGLES, object.indices.length, gl.UNSIGNED_SHORT,0);
+                        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                    }
+                }
+                catch(err){
+                    alert(err);
+                }
+            }
+
+            var lastTime = 0;
+            var angle = 0;
+            /**
+            * Updates the angle of rotation by a little bit each time
+            */
+            function animate() {
+                var timeNow = new Date().getTime();
+                if (lastTime != 0) {
+                    var elapsed = timeNow - lastTime;
+                    if (animateFlag) angle += (90 * elapsed) / 10000.0;
+                }
+                lastTime = timeNow;
+            }
+
+            /**
+            * Render Loop
+            */
+            function renderLoop() {
+                requestAnimFrame(renderLoop);
+                drawScene();
+                animate();
+            }
+
+            /**
+            * Entry point. This function is invoked when the page is loaded
+            */
+            function runWebGLApp() {
+                //Obtains a WebGL context
+                gl = utils.getGLContext("canvas-element-id");
+                //Initializes the program (shaders)
+                initProgram();
+                //Initializes lights
+                initLights();
+                //Load Scene
+                loadScene();
+                //Renders the scene!
+                renderLoop();
+            }
+        </script>
+    </head>
+    <body onload="runWebGLApp();">
+        <canvas id='canvas-element-id' width='1400' height='400'>
+            Your browser does not support the HTML5 canvas element.
+        </canvas>
+        <div>
+            <p>
+                X: <span id="value-x">4.5</span>
+                <input id="slider-x" type="range" min="-100" max="100" value="9"/>
+            </p>
+            <p>
+                Y: <span id="value-y">3.0</span>
+                <input id="slider-y" type="range" min="0" max="500" value="30"/>
+            </p>
+            <p>
+                Z: <span id="value-z">15.0</span>
+                <input id="slider-z" type="range" min="-100" max="100" value="30"/>
+            </p>
+            <p>
+                shininess: <span id="value-s">200</span>
+                <input id="slider-s" type="range" min="1" max="300" value="200"/>
+            </p>
+            <p>
+                distance: <span id="value-d">40</span>
+                <input id="slider-d" type="range" min="10" max="100" value="40"/>
+            </p>
+            <p>
+                <label>animate</label><input type="checkbox" id="animate"></label>
+            </p>
+        </div>
+        <script src="http://code.jquery.com/jquery-latest.js"></script>
+        <script>
+            $("#animate").click(function() {
+                if ($(this).prop("checked")) {
+                    animateFlag = true;
+                } else {
+                    animateFlag = false;
+                }
+            });
+
+            var sliderX = document.querySelector("#slider-x"),
+                sliderY = document.querySelector("#slider-y"),
+                sliderZ = document.querySelector("#slider-z"),
+                sliderS = document.querySelector("#slider-s"),
+                sliderD = document.querySelector("#slider-d");
+
+            var valueX = document.querySelector("#value-x"),
+                valueY = document.querySelector("#value-y"),
+                valueZ = document.querySelector("#value-z"),
+                valueS = document.querySelector("#value-s"),
+                valueD = document.querySelector("#value-d");
+
+            sliderX.addEventListener("change", function(e) {
+                updateLightDirection();
+            });
+            sliderY.addEventListener("change", function(e) {
+                updateLightDirection();
+            });
+            sliderZ.addEventListener("change", function(e) {
+                updateLightDirection();
+            });
+            sliderS.addEventListener("change", function() {
+                updateShininess();
+            });
+            sliderD.addEventListener("change", function() {
+                updateDistance();
+            });
+
+            function updateLightDirection() {
+                var x = +sliderX.value,
+                    y = +sliderY.value,
+                    z = +sliderZ.value;
+
+                var intX = +(x/2).toFixed(2),
+                    intY = +(y/10).toFixed(2),
+                    intZ = +(z/2).toFixed(2);
+
+                gl.uniform3fv(prg.uLightPosition, [intX, intY, intZ]);
+                valueX.innerHTML = intX;
+                valueY.innerHTML = intY;
+                valueZ.innerHTML = intZ;
+            }
+
+            function updateShininess(){
+                var d = +sliderS.value;
+                gl.uniform1f(prg.uShininess, d);
+                valueD.innerHTML = d;
+            }
+
+            function updateDistance() {
+                var d = +sliderD.value;
+                valueD.innerHTML = d;
+                distance = -d;
+            }
+        </script>
+    </body>
+</html>
