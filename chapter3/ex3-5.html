@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>The Wall</title>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+
+            uniform vec3 uLightDirection;
+            uniform vec4 uLightAmbient;
+            uniform vec4 uLightDiffuse;
+            uniform vec4 uMaterialDiffuse;
+
+            varying vec4 vFinalColor;
+
+            void main(void) {
+                vec3 N = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+                vec3 L = normalize(uLightDirection);
+
+                float lambertTerm = dot(N, -L);
+
+                vec4 Ia = uLightAmbient;
+                vec4 Id = uMaterialDiffuse * uLightDiffuse * lambertTerm;
+
+                vFinalColor = Ia + Id;
+                vFinalColor.a = 1.0;
+
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            varying vec4 vFinalColor;
+
+            void main(void) {
+                gl_FragColor = vFinalColor;
+            }
+        </script>
+
+        <script src="library/gl-matrix-min.js"></script>
+        <script src="library/utils.js"></script>
+        <script>
+            var gl = null;
+            var prg = null;
+            var c_width = 0;
+            var c_height = 0;
+
+            var mvMatrix = mat4.create();
+            var pMartrix = mat4.create();
+            var nMatrix = mat4.create();
+
+            var verticesBuffer;
+            var indicesBuffer;
+            var normalsBuffer;
+
+            var vertices;
+            var indices;
+            var normals;
+
+            function initProgram() {
+                var vertexShader = utils.getShader(gl, "shader-vs");
+                var fragmentShader = utils.getShader(gl, "shader-fs");
+
+                prg = gl.createProgram();
+                gl.attachShader(prg, vertexShader);
+                gl.attachShader(prg, fragmentShader);
+                gl.linkProgram(prg);
+
+                if (!gl.getProgramParameter(prg, gl.LINK_STATUS)) {
+                    alert("Could not initialize shaders");
+                    return;
+                }
+
+                gl.useProgram(prg);
+
+                prg.aVertexPosition = gl.getAttribLocation(prg, "aVertexPosition");
+                prg.aVertexNormal = gl.getAttribLocation(prg, "aVertexNormal");
+
+                prg.uPMatrix = gl.getUniformLocation(prg, "uPMatrix");
+                prg.uMVMatrix = gl.getUniformLocation(prg, "uMVMatrix");
+                prg.uNMatrix = gl.getUniformLocation(prg, "uNMatrix");
+
+                prg.uLightDirection = gl.getUniformLocation(prg, "uLightDirection");
+                prg.uLightAmbient = gl.getUniformLocation(prg, "uLightAmbient");
+                prg.uLightDiffuse = gl.getUniformLocation(prg, "uLightDiffuse");
+                prg.uMaterialDiffuse = gl.getUniformLocation(prg, "uMaterialDiffuse");
+            }
+
+            function initLights() {
+                gl.uniform3fv(prg.uLightDirection, [0.0, 0.0, -1.0]);
+                gl.uniform4fv(prg.uLightAmbient, [0.1, 0.1, 0.1, 1.0]);
+                gl.uniform4fv(prg.uLightDiffuse, [0.6, 0.6, 0.6, 1.0]);
+                gl.uniform4fv(prg.uMaterialDiffuse, [0.6, 0.15, 0.15, 1.0]);
+            }
+
+            var azimuth = 0;
+            var elevation = 0;
+
+            document.onkeydown = processKey;
+            function processKey(ev) {
+                var lightDirection = gl.getUniform(prg, prg.uLightDirection);
+                var incrAzimuth = 10;
+                var incrElevation = 10;
+
+                switch(ev.keyCode) {
+                    case 37:  // left
+                        azimuth -= incrAzimuth;
+                        break;
+                    case 38:  // up
+                        elevation += incrElevation;
+                        break;
+                    case 39: // right
+                        azimuth += incrAzimuth;
+                        break;
+                    case 40:
+                        elevation -= incrElevation;
+                        break;
+                }
+
+                azimuth %= 360;
+                elevation %= 360;
+
+                var theta = elevation * Math.PI / 180;
+                var phi = azimuth * Math.PI / 180;
+
+                lightDirection[0] = Math.cos(theta) * Math.sin(phi);
+                lightDirection[1] = Math.sin(theta);
+                lightDirection[2] = Math.cos(theta) * -Math.cos(phi);
+
+                gl.uniform3fv(prg.uLightDirection, lightDirection);
+            }
+
+            /**
+             * This function generates the example data and create the buffers
+             *
+             *           4          5             6         7
+             *           +----------+-------------+---------+
+             *           |          |             |         |
+             *           |          |             |         |
+             *           |          |             |         |
+             *           |          |             |         |
+             *           |          |             |         |
+             *           +----------+-------------+---------+
+             *           0          1             2         3
+             *
+             */
+            function initBuffers() {
+                vertices = [
+                    -20.0, -7.0, 20.0,  // 0
+                    -10.0, -7.0, 0.0,   // 1
+                    10.0, -7.0, 0.0,    // 2
+                    20.0, -7.0, 20.0,   // 3
+
+                    -20.0, 7.0, 20.0,   // 4
+                    -10.0, 7.0, 0.0,    // 5
+                    10.0, 7.0, 0.0,     // 6
+                    20.0, 7.0, 20.0     // 7
+                ];
+
+                indices = [
+                    0, 5, 4,
+                    1, 5, 0,
+                    1, 6, 5,
+                    2, 6, 1,
+                    2, 7, 6,
+                    3, 7, 2
+                ];
+
+                normals = utils.calculateNormals(vertices, indices);
+                verticesBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+                normalsBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
+                indicesBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+            }
+
+            function drawScene() {
+                gl.clearColor(0.12, 0.12, 0.12, 1.0);
+                gl.clearDepth(100.0);
+                gl.enable(gl.DEPTH_TEST);
+                gl.depthFunc(gl.LEQUAL);
+                gl.viewport(0, 0, c_width, c_height);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+                mat4.perspective(45, c_width/c_height, 0.1, 10000.0, pMartrix);
+                mat4.identity(mvMatrix);
+
+                mat4.translate(mvMatrix, [0.0, 0.0, -40.0]);
+                gl.uniformMatrix4fv(prg.uMVMatrix, false, mvMatrix);
+                gl.uniformMatrix4fv(prg.uPMatrix, false, pMartrix);
+
+                mat4.set(mvMatrix, nMatrix);
+                mat4.inverse(nMatrix);
+                mat4.transpose(nMatrix);
+                gl.uniformMatrix4fv(prg.uNMatrix, false, nMatrix);
+
+                try {
+                    gl.enableVertexAttribArray(prg.aVertexPosition);
+                    gl.enableVertexAttribArray(prg.aVertexNormal);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
+                    gl.vertexAttribPointer(prg.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer);
+                    gl.vertexAttribPointer(prg.aVertexNormal, 3, gl.FLOAT, false, 0, 0);
+
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer);
+                    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                } catch(err) {
+                    alert(err);
+                }
+            }
+
+            function renderLoop() {
+                requestAnimationFrame(renderLoop);
+                drawScene();
+            }
+
+            function runWebGLApp() {
+                gl = utils.getGLContext("canvas-element-id");
+                initProgram();
+                initBuffers();
+                initLights();
+                renderLoop();
+            }
+        </script>
+    </head>
+    <body onload="runWebGLApp()">
+        <p>使用方向键控制光照角度</p>
+        <canvas id='canvas-element-id' width='480' height='400'>
+            Your browser does not support the HTML5 canvas element.
+        </canvas>
+    </body>
+</html>
