@@ -56,8 +56,7 @@ KISSY.add(function(S, IO, Utils) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferObject);
 			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(object.vertices), gl.STATIC_DRAW);
 
-			console.log(Utils.calculateNormals(object.vertices, object.indices));
-            var normalBufferObjcet = gl.createBuffer();
+			var normalBufferObjcet = gl.createBuffer();
 			gl.bindBuffer(gl.ARRAY_BUFFER, normalBufferObjcet);
 			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(Utils.calculateNormals(object.vertices, object.indices)), gl.STATIC_DRAW);
 

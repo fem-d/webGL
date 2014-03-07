@@ -1,7 +1,7 @@
 /**
  * 辅助模块
  * @author: gonghao.gh
- * @date: 2013-11-26
+ * @date: 2013-03-07
  */
 
 KISSY.add(function(S) {
@@ -105,6 +105,16 @@ KISSY.add(function(S) {
             }
 
             return ns;
+        },
+
+        calculateTangents : function(vertices, normals)
+        {
+            var vs = vertices;
+            var ts = [];
+            for(var i=0;i<vs.length; i++){
+                ts[i]=0.0;
+            }
+            return ts;
         }
 	};
 
