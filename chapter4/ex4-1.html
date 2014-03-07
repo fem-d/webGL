@@ -7,6 +7,8 @@
             #tbl-matrix {
                 border: 1px solid #000;
                 font-size: 12px;
+                float: right;
+                margin-right: 50px;
             }
 
             #tbl-matrix td {
@@ -25,6 +27,11 @@
 
             #m8, #m9, #m10 {
                 color: #c0504d;
+            }
+
+            p span {
+                width: 50px;
+                display: inline-block;
             }
         </style>
         <script id="shader-vs" type="x-shader/x-vertex">
@@ -95,6 +102,24 @@
                 <tr><td id='m2'></td><td id='m6'></td><td id='m10'></td><td id='m14' style='font-weight:bold'></td></tr>
                 <tr><td id='m3'></td><td id='m7'></td><td id='m11'></td><td id='m15'></td></tr>
             </table>
+            <div style="width: 1200px;margin-right:400px;">
+                <p>
+                    <label><input id="world" name="mode" type="radio" checked="checked">World</label>
+                    <lebel><input id="camera" name="mode" type="radio">Camera</lebel>
+                </p>
+                <p>
+                    X:<span id="labelX">0</span>
+                    <input id="rangeX" type="range" min="-50" max="50" value="0">
+                </p>
+                <p>
+                    Y:<span id="labelY">-2</span>
+                    <input id="rangeY" type="range" min="-50" max="50" value="-2">
+                </p>
+                <p>
+                    Z:<span id="labelZ">-30</span>
+                    <input id="rangeZ" type="range" min="-50" max="50" value="-30">
+                </p>
+            </div>
         </div>
 
         <script src="http://g.tbcdn.cn/kissy/k/1.4.0/seed-min.js?t=20140305"></script>
@@ -266,6 +291,57 @@
                         app.drawSceneHook = draw;
                         app.run();
                     })();
+
+                    $("#rangeX").on("change", function(e) {
+                        var x = $(e.target).val();
+                        $('#labelX').text(x);
+                        position[0] = +x;
+                        app.refresh();
+                    });
+
+                    $("#rangeY").on("change", function(e) {
+                        var y = $(e.target).val();
+                        $('#labelY').text(y);
+                        position[1] = +y;
+                        app.refresh();
+                    });
+
+                    $("#rangeZ").on("change", function(e) {
+                        var z = $(e.target).val();
+                        $('#labelZ').text(z);
+                        position[2] = +z;
+                        app.refresh();
+                    });
+
+                    function updateSliders() {
+                        $('#rangeX').val(position[0]);
+                        $('#rangeY').val(position[1]);
+                        $('#rangeZ').val(position[2]);
+                        $('#labelX').html(position[0]);
+                        $('#labelY').html(position[1]);
+                        $('#labelZ').html(position[2]);
+                    }
+
+                    $("#world").on("click", function() {
+                        if (coords == COORDS_WORLD) {
+                            return;
+                        }
+                        vec3.set(home, position);
+                        updateSliders();
+                        coords = COORDS_WORLD;
+                        app.refresh();
+                    });
+
+                    $("#camera").on("click", function() {
+                        if (coords == COORDS_CAMERA) {
+                            return;
+                        }
+                        vec3.set(home, position);
+                        vec3.negate(position);
+                        updateSliders();
+                        coords = COORDS_CAMERA;
+                        app.refresh();
+                    })
             });
         </script>
     </body>
