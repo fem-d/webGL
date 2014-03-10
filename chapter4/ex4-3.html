@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta charset="utf-8">
-        <title>Model-View Matrix: Rotation</title>
+        <title>Model-View Matrix: Rotation and Translation</title>
         <style>
             #tbl-matrix {
                 border: 1px solid #000;
@@ -43,6 +43,7 @@
             uniform mat4 uPMatrix;
             uniform mat4 uNMatrix;
 
+            uniform bool uUpdateLight;
             uniform vec3 uLightPosition;
             uniform vec4 uLightAmbient;
             uniform vec4 uLightDiffuse;
@@ -63,7 +64,9 @@
                 } else {
                     vec3 N = vec3(uNMatrix * vec4(aVertexNormal, 0.0));
                     vec3 L = normalize(-uLightPosition);
-                    //L = vec3(uNMatrix * vec4(L, 0.0));
+                    if (uUpdateLight) {
+                        L = vec3(uNMatrix * vec4(L, 0.0));
+                    }
 
                     float lambertTerm = dot(N, -L);
                     if (lambertTerm <= 0.0) {
@@ -107,17 +110,33 @@
                     <label><input id="world" name="mode" type="radio" checked="checked">World</label>
                     <lebel><input id="camera" name="mode" type="radio">Camera</lebel>
                 </p>
+            </div>
+            <div style="float:left;">
                 <p>
-                    X degrees:<span id="labelX">0</span>
-                    <input id="rangeX" type="range" min="-180" max="180" value="0">
+                    X position:<span id="labposX">0</span>
+                    <input id="posX" type="range" min="-50" max="50" value="0">
                 </p>
                 <p>
-                    Y degrees:<span id="labelY">0</span>
-                    <input id="rangeY" type="range" min="-180" max="180" value="0">
+                    Y position:<span id="labposY">-2</span>
+                    <input id="posY" type="range" min="-50" max="50" value="-2">
                 </p>
                 <p>
-                    Z degrees:<span id="labelZ">0</span>
-                    <input id="rangeZ" type="range" min="-180" max="180" value="0">
+                    Z position:<span id="labposZ">-30</span>
+                    <input id="posZ" type="range" min="-50" max="50" value="-30">
+                </p>
+            </div>
+            <div style="float:left;margin-left:50px;">
+                <p>
+                    X degrees:<span id="labrotX">0</span>
+                    <input id="rotX" type="range" min="-180" max="180" value="0">
+                </p>
+                <p>
+                    Y degrees:<span id="labrotY">0</span>
+                    <input id="rotY" type="range" min="-180" max="180" value="0">
+                </p>
+                <p>
+                    Z degrees:<span id="labrotZ">0</span>
+                    <input id="rotZ" type="range" min="-180" max="180" value="0">
                 </p>
             </div>
         </div>
@@ -199,10 +218,10 @@
                             mat4.rotateZ(mvMatrix, rotation[2] * Math.PI / 180);
                         } else {
                             mat4.identity(cMatrix);
+                            mat4.translate(cMatrix, position);
                             mat4.rotateX(cMatrix, rotation[0] * Math.PI / 180);
                             mat4.rotateY(cMatrix, rotation[1] * Math.PI / 180);
                             mat4.rotateZ(cMatrix, rotation[2] * Math.PI / 180);
-                            mat4.translate(cMatrix, position);
                         }
                     }
 
@@ -298,34 +317,62 @@
                         app.run();
                     })();
 
-                    $("#rangeX").on("change", function(e) {
+                    $("#posX").on("change", function(e) {
                         var x = $(e.target).val();
-                        $('#labelX').text(x);
+                        $('#labposX').text(x);
+                        position[0] = +x;
+                        app.refresh();
+                    });
+
+                    $("#posY").on("change", function(e) {
+                        var y = $(e.target).val();
+                        $('#labposY').text(y);
+                        position[1] = +y;
+                        app.refresh();
+                    });
+
+                    $("#posZ").on("change", function(e) {
+                        var z = $(e.target).val();
+                        $('#labpos').text(z);
+                        position[2] = +z;
+                        app.refresh();
+                    });
+
+                    $("#rotX").on("change", function(e) {
+                        var x = $(e.target).val();
+                        $('#labrotX').text(x);
                         rotation[0] = +x;
                         app.refresh();
                     });
 
-                    $("#rangeY").on("change", function(e) {
+                    $("#rotY").on("change", function(e) {
                         var y = $(e.target).val();
-                        $('#labelY').text(y);
+                        $('#labrotY').text(y);
                         rotation[1] = +y;
                         app.refresh();
                     });
 
-                    $("#rangeZ").on("change", function(e) {
+                    $("#rotZ").on("change", function(e) {
                         var z = $(e.target).val();
-                        $('#labelZ').text(z);
+                        $('#labrotZ').text(z);
                         rotation[2] = +z;
                         app.refresh();
                     });
 
                     function updateSliders() {
-                        $('#rangeX').val(rotation[0]);
-                        $('#rangeY').val(rotation[1]);
-                        $('#rangeZ').val(rotation[2]);
-                        $('#labelX').html(rotation[0]);
-                        $('#labelY').html(rotation[1]);
-                        $('#labelZ').html(rotation[2]);
+                        $('#rotX').val(rotation[0]);
+                        $('#rotY').val(rotation[1]);
+                        $('#rotZ').val(rotation[2]);
+                        $('#labrotX').html(rotation[0]);
+                        $('#labrotY').html(rotation[1]);
+                        $('#labrotZ').html(rotation[2]);
+
+                        $('#posX').val(position[0]);
+                        $('#posY').val(position[1]);
+                        $('#posZ').val(position[2]);
+                        $('#labposX').html(position[0]);
+                        $('#labposY').html(position[1]);
+                        $('#labposZ').html(position[2]);
                     }
 
                     $("#world").on("click", function() {

@@ -71,7 +71,7 @@
                     }
                     vec4 Ia = uLightAmbient;
                     vec4 Id = uMaterialDiffuse * uLightDiffuse * lambertTerm;
-                    vFinalColor = Id;
+                    vFinalColor = Ia + Id;
                     vFinalColor.a = 1.0;
                 }
                 gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
