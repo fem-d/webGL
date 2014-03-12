@@ -218,10 +218,10 @@
                             mat4.rotateZ(mvMatrix, rotation[2] * Math.PI / 180);
                         } else {
                             mat4.identity(cMatrix);
-                            mat4.translate(cMatrix, position);
                             mat4.rotateX(cMatrix, rotation[0] * Math.PI / 180);
                             mat4.rotateY(cMatrix, rotation[1] * Math.PI / 180);
                             mat4.rotateZ(cMatrix, rotation[2] * Math.PI / 180);
+                            mat4.translate(cMatrix, position);
                         }
                     }
 
@@ -229,7 +229,6 @@
                         if (coords == COORDS_WORLD) {
                             mat4.inverse(mvMatrix, cMatrix);
                             displayMatrix(mvMatrix);
-                            gl.uniformMatrix4fv(prg.uMVMatrix, false, mvMatrix);
                         } else {
                             mat4.inverse(cMatrix, mvMatrix);
                             displayMatrix(cMatrix);
