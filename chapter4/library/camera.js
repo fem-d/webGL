@@ -48,7 +48,8 @@ KISSY.add(function() {
 	};
 
 	Camera.prototype.dolly = function(steps) {
-		var projection = vec3.create(),
+		var self = this,
+            projection = vec3.create(),
 			normal = vec3.create(),
 			step = this.steps-steps,
 			newPosition = vec3.create();

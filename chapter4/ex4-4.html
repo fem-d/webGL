@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Model-View Matrix: Rotation and Translation</title>
+    <style>
+        #tbl-matrix {
+            border: 1px solid #000;
+            font-size: 12px;
+            float: right;
+            margin-right: 50px;
+        }
+
+        #tbl-matrix td {
+            width: 34px;
+            height: 30px;
+            text-align: center;
+        }
+
+        #m0, #m1, #m2 {
+            color: #9bbb59;
+        }
+
+        #m4, #m5, #m6 {
+            color: #f0720a;
+        }
+
+        #m8, #m9, #m10 {
+            color: #c0504d;
+        }
+
+        p span {
+            width: 50px;
+            display: inline-block;
+        }
+    </style>
+    <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            attribute vec4 aVertexColor;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+
+            uniform bool uUpdateLight;
+            uniform vec3 uLightPosition;
+            uniform vec4 uLightAmbient;
+            uniform vec4 uLightDiffuse;
+            uniform vec4 uMaterialDiffuse;
+            uniform bool uWireframe;
+            uniform bool uPerVertexColor;
+
+            varying vec4 vFinalColor;
+
+            void main(void) {
+                if (uWireframe) {
+                    if (uPerVertexColor) {
+                        vFinalColor = aVertexColor;
+                    } else {
+                        vFinalColor = uMaterialDiffuse;
+                    }
+
+                } else {
+                    vec3 N = vec3(uNMatrix * vec4(aVertexNormal, 0.0));
+                    vec3 L = normalize(-uLightPosition);
+                    if (uUpdateLight) {
+                        L = vec3(uNMatrix * vec4(L, 0.0));
+                    }
+
+                    float lambertTerm = dot(N, -L);
+                    if (lambertTerm <= 0.0) {
+                        lambertTerm = 0.01;
+                    }
+                    vec4 Ia = uLightAmbient;
+                    vec4 Id = uMaterialDiffuse * uLightDiffuse * lambertTerm;
+                    vFinalColor = Ia + Id;
+                    vFinalColor.a = 1.0;
+                }
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+            }
+        </script>
+    <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            varying vec4 vFinalColor;
+
+            void main(void) {
+                gl_FragColor = vFinalColor;
+            }
+        </script>
+    <script src="library/gl-matrix-min.js"></script>
+</head>
+<body>
+<canvas id="canvas-element-id" width="1200" height="400">
+    Your browser does not support the HTML5 canvas element.
+</canvas>
+
+<div>
+    <table id='tbl-matrix'>
+        <tr><td id='m0'></td><td id='m4'></td><td id='m8'></td><td id='m12' style='font-weight:bold'></td></tr>
+        <tr><td id='m1'></td><td id='m5'></td><td id='m9'></td><td id='m13' style='font-weight:bold'></td></tr>
+        <tr><td id='m2'></td><td id='m6'></td><td id='m10'></td><td id='m14' style='font-weight:bold'></td></tr>
+        <tr><td id='m3'></td><td id='m7'></td><td id='m11'></td><td id='m15'></td></tr>
+    </table>
+    <div style="width: 1200px;margin-right:400px;">
+        <p>
+            <label><input id="tracking" name="mode" type="radio" checked="checked">tracking</label>
+            <lebel><input id="orbiting" name="mode" type="radio">orbiting</lebel>
+        </p>
+    </div>
+    <div style="float:left;">
+        <p>
+            X position:<span id="labposX">0</span>
+            <input id="posX" type="range" min="-140" max="140" value="0">
+        </p>
+        <p>
+            Y position:<span id="labposY">2</span>
+            <input id="posY" type="range" min="-140" max="140" value="4">
+        </p>
+        <p>
+            Z position:<span id="labposZ">50</span>
+            <input id="posZ" type="range" min="-140" max="140" value="100">
+        </p>
+    </div>
+    <div style="float:left;margin-left:50px;">
+        <p>
+            Elevation:<span id="labElev">0</span>
+            <input id="elev" type="range" min="-180" max="180" value="0">
+        </p>
+        <p>
+            Azimuth:<span id="labAzim">0</span>
+            <input id="azim" type="range" min="-180" max="180" value="0">
+        </p>
+        <p>
+            Dolly:<span id="labDolly">0</span>
+            <input id="dolly" type="range" min="-150" max="150" value="0">
+        </p>
+    </div>
+</div>
+
+<script src="http://g.tbcdn.cn/kissy/k/1.4.0/seed-min.js?t=20140305"></script>
+<script>
+    KISSY.config({
+        debug: true,
+        packages: {
+            "lib": {
+                tag: "20140312",
+                base: "./library/",
+                ignorePackageNameInUri: true
+            }
+        }
+    });
+</script>
+<script>
+KISSY.use("node, lib/webGLApp, lib/scene, lib/camera, lib/cameraInteractor, lib/utils, lib/floor, lib/axis",
+        function(S, Node, WebGLApp, Scene, Camera, CameraInteractor, Utils, Floor, Axis) {
+
+            var $ = Node.all;
+
+            var c_width = 1200;   // Variable to store the width of the canvas (updated when needed by codeview.js)
+            var c_height = 400;  // Variable to store the height of the canvas (updated when needed by codeview.js)
+
+            var mvMatrix    = mat4.create();    // The Model-View matrix
+            var pMatrix     = mat4.create();    // The projection matrix
+            var nMatrix     = mat4.create();    // The normal matrix
+            var cMatrix     = mat4.create();    // The camera matrix
+
+
+            var home = [0,2,50];
+            var requestUpdate = false;
+
+            var updateLightPosition = false;
+
+            var camera = null;
+            var interactor = null;
+
+            var CAMERA_ORBIT_TYPE = 1;
+            var CAMERA_TRACKING_TYPE = 2;
+
+            function displayMatrix(m) {
+                var selector = '';
+                for (var i = 0; i < 16; i++) {
+                    selector = "#m" + i;
+                    $(selector).html(m[i].toFixed(1));
+                }
+            }
+
+            function initGUIWithCameraSettings() {
+                $("#posX").on("change", function(e) {
+                    var x = +$(e.target).val();
+                    $('#labposX').text(x/2);
+                    var p = camera.position;
+                    p[0] = x/2;
+                    camera.setPosition(p);
+                    app.refresh();
+                });
+
+                $("#posY").on("change", function(e) {
+                    var y = +$(e.target).val();
+                    $('#labposY').text(y/2);
+                    var p = camera.position;
+                    p[1] = y/2;
+                    camera.setPosition(p);
+                    app.refresh();
+                });
+
+                $("#posZ").on("change", function(e) {
+                    var z = +$(e.target).val();
+                    $('#labposZ').text(z/2);
+                    var p = camera.position;
+                    p[2] = z/2;
+                    camera.setPosition(p);
+                    app.refresh();
+                });
+
+                $("#elev").on("change", function(e) {
+                    var elev = +$(e.target).val();
+                    $('#labElev').text(elev);
+                    camera.setElevation(elev);
+                    updateSliders();
+                    app.refresh();
+                });
+
+                $("#azim").on("change", function(e) {
+                    var azim = +$(e.target).val();
+                    $('#labAzim').text(azim);
+                    camera.setAzimuth(azim);
+                    updateSliders();
+                    app.refresh();
+                });
+
+                $("#dolly").on("change", function(e) {
+                    var dolly = +$(e.target).val();
+                    $('#labDolly').text(dolly);
+                    camera.dolly(dolly);
+                    updateSliders();
+                    app.refresh();
+                });
+            }
+
+            function initTransforms() {
+                mvMatrix = camera.getViewTransform();
+
+                mat4.identity(pMatrix);
+                mat4.perspective(30, c_width/c_height, 0.1, 10000.0, pMatrix);
+
+                mat4.identity(nMatrix);
+                mat4.set(mvMatrix, nMatrix);
+                mat4.inverse(nMatrix);
+                mat4.transpose(nMatrix);
+            }
+
+            function updateTransforms() {
+                mat4.perspective(30, c_width/c_height, 0.1, 1000.0, pMatrix);
+            }
+
+            function setMatrixUniforms() {
+
+                gl.uniformMatrix4fv(prg.uPMatrix, false, pMatrix);
+                gl.uniformMatrix4fv(prg.uMVMatrix, false, camera.getViewTransform());
+                mat4.transpose(camera.matrix, nMatrix);
+                gl.uniformMatrix4fv(prg.uNMatrix, false, nMatrix);
+
+                displayMatrix(camera.matrix);
+            }
+
+            function configure() {
+                gl.clearColor(0.3, 0.3, 0.3, 1.0);
+                gl.clearDepth(100.0);
+                gl.enable(gl.DEPTH_TEST);
+                gl.depthFunc(gl.LEQUAL);
+
+                camera = new Camera(CAMERA_TRACKING_TYPE);
+                camera.goHome(home);
+                camera.hookRenderer = draw;
+                camera.hookGUIUpdate = updateSliders;
+
+//                var canvas = document.getElementById('canvas-element-id');
+//                interactor = new CameraInteractor(camera, canvas);
+
+                initGUIWithCameraSettings();
+
+                initTransforms();
+            }
+
+            function load() {
+                Floor.build(80, 2);
+                Axis.build(82);
+
+                Scene.addObject(Floor);
+                Scene.addObject(Axis);
+                Scene.loadObject('models/geometry/cone.json', 'cone');
+            }
+
+            function draw() {
+                gl.viewport(0, 0, c_width, c_height);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+                try {
+                    updateTransforms();
+                    setMatrixUniforms();
+
+                    gl.uniform1i(prg.uUpdateLight, updateLightPosition);
+
+                    for (var i = 0, l = Scene.objects.length; i < l; i++) {
+                        var object = Scene.objects[i];
+
+                        gl.uniform4fv(prg.uMaterialDiffuse, object.diffuse);
+                        gl.uniform1i(prg.uWireframe, object.wireframe);
+                        gl.uniform1i(prg.uPerVertexColor, object.perVertexColor);
+
+                        gl.enableVertexAttribArray(prg.aVertexPosition);
+                        gl.disableVertexAttribArray(prg.aVertexNormal);
+                        gl.disableVertexAttribArray(prg.aVertexColor);
+
+                        gl.bindBuffer(gl.ARRAY_BUFFER, object.vbo);
+                        gl.vertexAttribPointer(prg.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+                        gl.enableVertexAttribArray(prg.aVertexPosition);
+
+                        if (!object.wireframe) {
+                            gl.bindBuffer(gl.ARRAY_BUFFER, object.nbo);
+                            gl.vertexAttribPointer(prg.aVertexNormal, 3, gl.FLOAT, false, 0, 0);
+                            gl.enableVertexAttribArray(prg.aVertexNormal);
+                        }
+
+                        if (object.perVertexColor) {
+                            gl.bindBuffer(gl.ARRAY_BUFFER, object.cbo);
+                            gl.vertexAttribPointer(prg.aVertexColor, 4, gl.FLOAT, false, 0, 0);
+                            gl.enableVertexAttribArray(prg.aVertexColor);
+                        }
+
+                        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object.ibo);
+
+                        if (object.wireframe) {
+                            gl.drawElements(gl.LINES, object.indices.length, gl.UNSIGNED_SHORT, 0);
+                        } else {
+                            gl.drawElements(gl.TRIANGLES, object.indices.length, gl.UNSIGNED_SHORT, 0);
+                        }
+                        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                    }
+                } catch(err) {
+                    alert(err);
+                }
+            }
+
+            var app = null;
+            (function runWebGLApp() {
+                app = new WebGLApp('canvas-element-id');
+                app.configureGLHook = configure;
+                app.loadSceneHook = load;
+                app.drawSceneHook = draw;
+                app.run();
+            })();
+
+            function updateSliders() {
+                $('#posX').val(camera.position[0]);
+                $('#posY').val(camera.position[1]);
+                $('#posZ').val(camera.position[2]);
+                $('#elev').val(camera.elevation);
+                $('#amiz').val(camera.azimuth);
+
+                $('#labposX').text(camera.position[0].toFixed(1));
+                $('#labposY').text(camera.position[1].toFixed(1));
+                $('#labposZ').text(camera.position[2].toFixed(1));
+                $('#labElev').text(camera.elevation.toFixed(1));
+                $('#labAmiz').text(camera.azimuth.toFixed(1));
+            }
+
+            $("#tracking").on("click", function() {
+                camera.goHome();
+                updateSliders();
+
+                camera.setType(CAMERA_TRACKING_TYPE);
+                app.refresh();
+            });
+
+            $("#orbiting").on("click", function() {
+                camera.goHome();
+                updateSliders();
+
+                camera.setType(CAMERA_ORBIT_TYPE);
+                app.refresh();
+            });
+        });
+</script>
+</body>
+</html>
