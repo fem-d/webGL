@@ -5,6 +5,8 @@
  */
 KISSY.add(function(S, IO, Utils) {
 
+    var n = 0;
+
 	var Scene = {
 
 		objects: [],
@@ -35,7 +37,7 @@ KISSY.add(function(S, IO, Utils) {
 			for (var i = 1; i < parts; i++) {
 				var partFilename = path + "" + i + ".json",
 					partAlias = alias + "" + i;
-				this.loadObject(pathFilename, partAlias);
+				this.loadObject(partFilename, partAlias);
 			}
 		},
 
