@@ -1,0 +1,121 @@
+<!DOCTYPE>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Global vs Local Transformations</title>
+        <script src="http://g.tbcdn.cn/kissy/k/1.4.2/seed-min.js" charset="utf-8"></script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            attribute vec4 aVertexColor;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+            uniform vec3 uLightPosition;
+            uniform vec4 uMaterialDiffuse;
+            uniform bool uWireframe;
+            uniform bool uPerVertexColor;
+            uniform bool uUpdateLight;
+
+            varying vec3 vNormal;
+            varying vec3 vLightRay;
+            varying vec3 vEyeVec;
+            varying vec4 vFinalColor;
+
+            void main(void) {
+
+                if (uWireframe) {
+                    if (uPerVertexColor) {
+                        vFinalColor = aVertexColor;
+                    } else {
+                        vFinalColor = uMaterialDiffuse;
+                    }
+                }
+
+                vec4 vertex = uMVMatrix * vec4(aVertexPosition, 1.0);
+                vNormal = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+                vec4 light = vec4(uLightPosition, 1.0);
+                if (uUpdateLight) {
+                    light = uMVMatrix * vec4(uLightPosition, 1.0);
+                }
+                vLightRay = vertex.xyz - light.xyz;
+                vEyeVec = -vec3(vertex.xyz);
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            uniform bool uWireframe;
+            uniform vec4 uLightAmbient;
+            uniform vec4 uLightDiffuse;
+            uniform vec4 uLightSpecular;
+            uniform vec4 uMaterialAmbient;
+            uniform vec4 uMaterialDiffuse;
+            uniform vec4 uMaterialSpecular;
+            uniform float uShininess;
+
+            varying vec3 vNormal;
+            varying vec3 vLightRay;
+            varying vec3 vEyeVec;
+            varying vec4 vFinalColor;
+
+            void main(void) {
+                if (uWireframe) {
+                    gl_FragColor = vFinalColor;
+                } else {
+                    vec3 L = normalize(vLightRay);
+                    vec3 N = normalize(vNormal);
+
+                    float lambertTerm = dot(N, -L);
+
+                    vec4 Ia = uLightAmbient * uMaterialAmbient;
+
+                    vec4 Id = vec4(0.0, 0.0, 0.0, 1.0);
+
+                    vec4 Is = vec4(0.0, 0.0, 0.0, 1.0);
+
+                    if (lambertTerm > 0.0) {
+                        Id = uLightDiffuse * uMaterialDiffuse * lambertTerm;
+                        vec3 E = normalize(vEyeVec);
+                        vec3 R = reflect(L, N);
+                        float specular = pow(max(dot(R, E), 0.0), uShininess);
+                        Is = uLightSpecular * uMaterialSpecular * specular;
+                    }
+
+                    vec4 finalColor = Ia + Id + Is;
+                    finalColor.a = 1.0;
+                    gl_FragColor = finalColor;
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <canvas id='canvas-element-id' width='1100' height='400' style="margin:0 auto;display:block;">
+            Your browser does not support the HTML5 canvas element.
+        </canvas>
+
+        <script src="library/gl-matrix-min.js"></script>
+        <script>
+            KISSY.config({
+                packages:[
+                    {
+                        tag: +new Date(),
+                        debug: true,
+                        name: "lib",
+                        path: "library",
+                        charset: "utf-8",
+                        ignorePackageNameInUri: true
+                    }
+                ]
+            });
+        </script>
+        <script>
+            var gl, prg, width, height;
+        </script>
+        <script src="ex5-1.js"></script>
+    </body>
+</html>

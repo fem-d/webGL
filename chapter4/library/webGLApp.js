@@ -22,7 +22,7 @@ KISSY.add(function(S, Utils, Program) {
 
     WebGLApp.prototype.renderLoop = function() {
         var self = this;
-        webGLApp_timer_id = setInterval(self.drawSceneHook, 33);
+        webGLApp_timer_id = setInterval(self.drawSceneHook, WEBGLAPP_RENDER_RATE);
     };
 
 	WebGLApp.prototype.run = function() {
@@ -41,7 +41,7 @@ KISSY.add(function(S, Utils, Program) {
         this.loadSceneHook();
         setTimeout(function() {
             self.renderLoop();
-        }, 2000);
+        }, 1000);
 	};
 
 	WebGLApp.prototype.refresh = function() {
