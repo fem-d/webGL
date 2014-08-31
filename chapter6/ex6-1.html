@@ -1,0 +1,109 @@
+<!DOCTYPE>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Cube</title>
+        <script src="http://g.tbcdn.cn/kissy/k/1.4.2/seed-min.js" charset="utf-8"></script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            attribute vec4 aVertexColor;
+
+            uniform bool uUseVertexColor;
+            uniform vec4 uMaterialDiffuse;
+            uniform vec4 uMaterialAmbient;
+            uniform float uAlpha;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+
+            uniform vec3 uLightPosition;
+            uniform vec4 uLightAmbient;
+            uniform vec4 uLightDiffuse;
+            uniform bool uUseLambert;
+
+            varying vec4 vColor;
+
+            void main(void) {
+
+                vec4 vertex = uMVMatrix * vec4(aVertexPosition, 1.0);
+                float lambertTerm = 1.0;
+
+                if (uUseLambert) {
+                    vec3 normal = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+                    vec3 lightDirection = normalize(-uLightPosition);
+                    lambertTerm = max(dot(normal, -lightDirection), 0.20);
+                }
+
+                vec4 Ia = uLightAmbient * uMaterialAmbient;
+                vec4 Id = vec4(0.0);
+
+                if (uUseVertexColor) {
+                    Id = uLightDiffuse * aVertexColor * lambertTerm;
+                } else {
+                    Id = uLightDiffuse * uMaterialDiffuse * lambertTerm;
+                }
+
+                vColor = Ia + Id;
+                vColor.a = uAlpha;
+
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            uniform vec4 uMaterialDiffuse;
+            uniform bool uWireframe;
+
+            varying vec4 vColor;
+
+            void main(void) {
+                if (uWireframe) {
+                    gl_FragColor = uMaterialDiffuse;
+                } else {
+                    gl_FragColor = vColor;
+                }
+            }
+        </script>
+        <style>
+            .con {
+                float: left;
+                margin-right: 50px;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id='canvas-element-id' width='1100' height='400' style="margin:0 auto;display:block;">
+            Your browser does not support the HTML5 canvas element.
+        </canvas>
+        <div style="width: 1100px; margin: 0 auto; margin-top: 30px;">
+            <div class="con"><label>Use Lambert Coefficient<input type="checkbox" name="lambert" checked="checked"></label></div>
+            <div class="con"><label>Constant<input type="radio" name="shader" checked="checked" data-shader="constant"></label><label>Per Vertex<input type="radio" name="shader" data-shader="perVertex"></label></div>
+            <div class="con"><label>Simple Cube<input type="radio" name="cube" checked="checked" data-cube="simple"></label><label>Complex Cube<input type="radio" name="cube" data-cube="complex"></label></div>
+        </div>
+
+        <script src="library/gl-matrix-min.js"></script>
+        <script>
+            KISSY.config({
+                packages:[
+                    {
+                        tag: false,
+                        debug: true,
+                        name: "lib",
+                        path: "library",
+                        charset: "utf-8",
+                        ignorePackageNameInUri: true
+                    }
+                ]
+            });
+        </script>
+        <script>
+            var gl, prg, width, height;
+        </script>
+        <script src="ex6-1.js"></script>
+    </body>
+</html>

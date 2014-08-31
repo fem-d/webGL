@@ -318,8 +318,24 @@ Interpolation极大地简化了3D动画。与参数化曲线不同，它不需�
 
 在下面的实例中，我们将依次查看这三种方法。
 
+[三种Interpolation方法](http://gonghao.alidemo.cn/exercise/chapter5/ex5-5.html)    
+
+<[源码](https://github.com/fem-d/webGL/blob/master/chapter5/ex5-5.html)>
+
+![](http://gtms02.alicdn.com/tps/i2/TB1_vcVFVXXXXaiXXXX15PYZVXX-1102-400.png)
+
+> 在前面的例子中，对于Polynomial interpolation的实现采用的是lagrange interpolation（[拉格朗日插值算法](http://en.wikipedia.org/wiki/Lagrange_polynomial)），这是用多项式来逼近一条能穿过所有控制点的曲线。这个算法的问题是当控制点较多且变化巨大时，会很容易地出现“抖动”的曲线（之前说的Runge现象也是一个问题）。B-spline使用的方法能避免这一问题，具体的实现作者还没有学习，学习后会补充上来。
 
 
+好吧，短暂而有趣的一章，又到了总结的时候。在这章中，我们学习了一些物体移动的基础知识。特别是我们学习了全局变换和局部变换的区别，以及如何使用矩阵栈来存取MVMatrix。  
+
+我们学习了使用计时器来实现动画，将动画和渲染帧隔离开来给了我们很多想象空间。我们还学习了不同的动画策略以及它们解决的问题。
+
+接着我们还使用了一些方法来优化我们的例子，如果你还记得是什么方法的话--！
+
+最后我们介绍了一些插值算法，它们使得我们更简单地实现动画。
+
+在下一章中，我们将使用WebGL场景中的颜色。
 
 
 
