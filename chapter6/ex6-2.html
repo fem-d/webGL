@@ -1,0 +1,131 @@
+<!DOCTYPE>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Multiple Light Source</title>
+        <script src="http://g.tbcdn.cn/kissy/k/1.4.2/seed-min.js" charset="utf-8"></script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+
+            uniform vec4 uMaterialDiffuse;
+            uniform vec3 uPositionRedLight;
+            uniform vec3 uPositionGreenLight;
+            uniform vec3 uPositionBlueLight;
+
+            varying vec3 vNormal;
+            varying vec3 vRedRay;
+            varying vec3 vGreenRay;
+            varying vec3 vBlueRay;
+
+            void main(void) {
+
+                vec4 vertex = uMVMatrix * vec4(aVertexPosition, 1.0);
+                vNormal = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+
+                //Transformed light position
+                vec4 redPosition = uMVMatrix * vec4(uPositionRedLight, 1.0);
+                vec4 greenPosition = uMVMatrix * vec4(uPositionGreenLight, 1.0);
+                vec4 bluePosition = uMVMatrix * vec4(uPositionBlueLight, 1.0);
+
+                //Light position
+                vRedRay = vertex.xyz - redPosition.xyz;
+                vGreenRay = vertex.xyz - greenPosition.xyz;
+                vBlueRay = vertex.xyz - bluePosition.xyz;
+
+                //Final vertex position
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            uniform vec4 uMaterialAmbient;
+            uniform vec4 uMaterialDiffuse;
+            uniform bool uWireframe;
+
+            uniform bool uLightSource;
+            uniform vec4 uLightAmbient;
+            uniform vec4 uDiffuseRedLight;
+            uniform vec4 uDiffuseGreenLight;
+            uniform vec4 uDiffuseBlueLight;
+            uniform float uCutOff;
+
+            //varyings
+            varying vec3 vNormal;
+            varying vec3 vRedRay;
+            varying vec3 vGreenRay;
+            varying vec3 vBlueRay;
+            varying vec4 vFinalColor;
+
+            void main(void) {
+                if (uWireframe || uLightSource) {
+                    gl_FragColor = uMaterialDiffuse;
+                } else {
+
+                    vec4 Ia = uLightAmbient * uMaterialAmbient;
+                    vec4 Id1 = vec4(0.0, 0.0, 0.0, 1.0);
+                    vec4 Id2 = vec4(0.0, 0.0, 0.0, 1.0);
+                    vec4 Id3 = vec4(0.0, 0.0, 0.0, 1.0);
+
+                    vec3 N = normalize(vNormal);
+
+                    float lambertTerm1 = dot(N, -normalize(vRedRay));
+                    float lambertTerm2 = dot(N, -normalize(vGreenRay));
+                    float lambertTerm3 = dot(N, -normalize(vBlueRay));
+
+                    if (lambertTerm1 > uCutOff) {
+                        Id1 = uDiffuseRedLight * uMaterialDiffuse * lambertTerm1;
+                    }
+                    if (lambertTerm2 > uCutOff) {
+                        Id2 = uDiffuseGreenLight * uMaterialDiffuse * lambertTerm2;
+                    }
+                    if (lambertTerm3 > uCutOff) {
+                        Id3 = uDiffuseBlueLight * uMaterialDiffuse * lambertTerm3;
+                    }
+
+                    vec4 finalColor = Ia + Id1 + Id2 + Id3;
+                    finalColor.a = 1.0;
+                    gl_FragColor = finalColor;
+                }
+            }
+        </script>
+        <style>
+            .con {
+                float: left;
+                margin-right: 50px;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id='canvas-element-id' width='1100' height='400' style="margin:0 auto;display:block;">
+            Your browser does not support the HTML5 canvas element.
+        </canvas>
+
+        <script src="library/gl-matrix-min.js"></script>
+        <script>
+            KISSY.config({
+                packages:[
+                    {
+                        tag: +new Date(),
+                        debug: true,
+                        name: "lib",
+                        path: "library",
+                        charset: "utf-8",
+                        ignorePackageNameInUri: true
+                    }
+                ]
+            });
+        </script>
+        <script>
+            var gl, prg, width, height;
+        </script>
+        <script src="ex6-2.js"></script>
+    </body>
+</html>

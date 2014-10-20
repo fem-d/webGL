@@ -35,6 +35,10 @@ KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, li
             gl.clearDepth(1.0);
             gl.enable(gl.DEPTH_TEST);
             gl.depthFunc(gl.LESS);
+//            gl.disable(gl.DEPTH_TEST);
+//            gl.enable(gl.BLEND);
+//            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
 
             var camera = new Camera({
                 type: CAMERA_ORBITING_TYPE
