@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>alpha blending</title>
+        <style>
+            .leftPanel {
+                width: 640px;
+                height: 700px;
+                float: left;
+            }
+
+            label {
+                width: 150px;
+                display: inline-block;
+            }
+
+            .rightPanel {
+                margin-left: 500px;
+                height: 700px;
+            }
+
+            ul {
+                padding: 0;
+                overflow: hidden;
+            }
+
+            ul li {
+                list-style: none;
+                float: left;
+            }
+        </style>
+        <script src="http://g.tbcdn.cn/kissy/k/1.4.3/seed.js" charset="utf-8"></script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+            uniform vec4 uMaterialDiffuse;
+            uniform vec3 uPositionLight;
+
+            varying vec3 vNormal;
+            varying vec3 vLightRay;
+            varying vec4 vFinalColor;
+
+            void main(void) {
+
+                vFinalColor = uMaterialDiffuse;
+
+                vec4 vertex = uMVMatrix * vec4(aVertexPosition, 1.0);
+
+                vNormal = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+
+                vec4 positionLight = vec4(uPositionLight, 1.0);
+
+                vLightRay = vertex.xyz - positionLight.xyz;
+
+                //Final vertex position
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            uniform bool uWireframe;
+            uniform vec4 uLightAmbient;
+            uniform vec4 uLightDiffuse;
+            uniform vec4 uMaterialAmbient;
+            uniform vec4 uMaterialDiffuse;
+            uniform bool uUseLambert;
+
+            //varyings
+            varying vec3 vNormal;
+            varying vec3 vLightRay;
+            varying vec4 vFinalColor;
+
+            void main(void) {
+                if (uWireframe) {
+                    gl_FragColor = vFinalColor;
+                } else {
+                    vec3 L = normalize(vLightRay);
+                    vec3 N = normalize(vNormal);
+
+                    float lambertTerm = clamp(dot(N, -L), 0.0, 1.0);
+
+                    vec4 Ia = uLightAmbient * uMaterialAmbient;
+
+                    vec4 Id = uLightDiffuse * uMaterialDiffuse;
+
+                    if (uUseLambert) {
+                        Id = Id * lambertTerm;
+                    }
+
+                    gl_FragColor = vec4(Ia.rgb + Id.rgb, uMaterialDiffuse.a);
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <div class="leftPanel">
+            <h2>Alpha Blending</h2>
+            <div class="funcCon">
+                <label data-type="blending"><input type="checkbox" checked="checked">Blending</label>
+                <label data-type="depth"><input type="checkbox" checked="checked">Depth Testing</label>
+                <label data-type="backFace"><input type="checkbox">Back Face Culling</label>
+                <label data-type="lambertTerm"><input type="checkbox" checked="checked">Lambert Term</label>
+                <label data-type="floor"><input type="checkbox" checked="checked">Floor</label>
+            </div>
+            <p>Sphere Alpha:<span id="labelSA">1</span><input id="sliderSA" type="range" min="1" max="10" step="1" value="10"></p>
+            <p>Cone Alpha:<span id="labelCA">1</span><input id="sliderCA" type="range" min="1" max="10" step="1" value="10"></p>
+            <ul>
+                <li>
+                    <p>Blend Function</p>
+                    <select name="Blend Equation" id="selBlendEquation">
+                        <option value="FUNC_ADD" selected="selected">gl.FUNC_ADD</option>
+                        <option value="FUNC_SUBTRACT">gl.FUNC_SUBTRACT</option>
+                        <option value="FUNC_REVERSE_SUBTRACT">gl.FUNC_REVERSE_SUBTRACT</option>
+                    </select>
+                </li>
+                <li>
+                    <p>Source</p>
+                    <select name="Source" id="selSource">
+                        <option value="ZERO">gl.ZERO</option>
+                        <option value="ONE">gl.ONE</option>
+                        <option value="SRC_COLOR">gl.SRC_COLOR</option>
+                        <option value="DST_COLOR">gl.DST_COLOR</option>
+                        <option value="SRC_ALPHA" selected="selected">gl.SRC_ALPHA</option>
+                        <option value="DST_ALPHA">gl.DST_ALPHA</option>
+                        <option value="CONSTANT_COLOR">gl.CONSTANT_COLOR</option>
+                        <option value="CONSTANT_ALPHA">gl.CONSTANT_ALPHA</option>
+                        <option value="ONE_MINUS_SRC_ALPHA">gl.ONE_MINUS_SRC_ALPHA</option>
+                        <option value="ONE_MINUS_DST_ALPHA">gl.ONE_MINUS_DST_ALPHA</option>
+                        <option value="ONE_MINUS_SRC_COLOR">gl.ONE_MINUS_SRC_COLOR</option>
+                        <option value="ONE_MINUS_DST_COLOR">gl.ONE_MINUS_DST_COLOR</option>
+                        <option value="ONE_MINUS_CONSTANT_COLOR">gl.ONE_MINUS_CONSTANT_COLOR</option>
+                        <option value="ONE_MINUS_CONSTANT_ALPHA">gl.ONE_MINUS_CONSTANT_ALPHA</option>
+                        <option value="SRC_ALPHA_SATURATE">gl.SRC_ALPHA_SATURATE</option>
+                    </select>
+                </li>
+                <li>
+                    <p>Destination</p>
+                    <select name="Target" id="selTarget">
+                        <option value="ZERO">gl.ZERO</option>
+                        <option value="ONE">gl.ONE</option>
+                        <option value="SRC_COLOR">gl.SRC_COLOR</option>
+                        <option value="DST_COLOR">gl.DST_COLOR</option>
+                        <option value="SRC_ALPHA">gl.SRC_ALPHA</option>
+                        <option value="DST_ALPHA">gl.DST_ALPHA</option>
+                        <option value="CONSTANT_COLOR">gl.CONSTANT_COLOR</option>
+                        <option value="CONSTANT_ALPHA">gl.CONSTANT_ALPHA</option>
+                        <option selected="selected" value="ONE_MINUS_SRC_ALPHA">gl.ONE_MINUS_SRC_ALPHA</option>
+                        <option value="ONE_MINUS_DST_ALPHA">gl.ONE_MINUS_DST_ALPHA</option>
+                        <option value="ONE_MINUS_SRC_COLOR">gl.ONE_MINUS_SRC_COLOR</option>
+                        <option value="ONE_MINUS_DST_COLOR">gl.ONE_MINUS_DST_COLOR</option>
+                        <option value="ONE_MINUS_CONSTANT_COLOR">gl.ONE_MINUS_CONSTANT_COLOR</option>
+                        <option value="ONE_MINUS_CONSTANT_ALPHA">gl.ONE_MINUS_CONSTANT_ALPHA</option>
+                    </select>
+                </li>
+            </ul>
+            <p>Constant Alpha(when applicable):<span id="labelCOA">1</span><input id="sliderCOA" type="range" min="5" max="90" step="5" value="90"></p>
+            <div>
+                Render Order:
+                <label data-type="coneFirst"><input type="radio" id="opt-cone-first" name="renderOrder" checked="checked">Cone First</label>
+                <label data-type="sphereFirst"><input type="radio" id="opt-sphere-first" name="renderOrder">Sphere First</label>
+            </div>
+        </div>
+        <div class="rightPanel">
+            <canvas id='canvas-element-id' width='500' height='400' style="margin:0 auto;display:block;">
+                Your browser does not support the HTML5 canvas element.
+            </canvas>
+        </div>
+
+        <script src="library/gl-matrix-min.js"></script>
+        <script>
+            KISSY.config({
+                packages:[
+                    {
+                        tag: +new Date(),
+                        debug: true,
+                        name: "lib",
+                        path: "library",
+                        charset: "utf-8",
+                        ignorePackageNameInUri: true
+                    }
+                ]
+            });
+        </script>
+        <script>
+            var gl, prg, width, height;
+        </script>
+        <script src="ex6-5.js"></script>
+    </body>
+</html>

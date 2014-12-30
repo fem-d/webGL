@@ -97,6 +97,70 @@ KISSY.add("lib/scene", function(S, Node, Base, Utils) {
 
         getObj: function() {
             return objects;
+        },
+
+        removeObject: function(objectName) {
+            var o = this.getObject(objectName);
+            var idx = objects.indexOf(o);
+            objects.splice(idx, 1);
+        },
+
+        renderFirst: function(objectName) {
+            var o = this.getObject(objectName),
+                idx = objects.indexOf(o);
+
+            if (idx == 0) {
+                return;
+            }
+            objects.splice(idx, 1);
+            objects.splice(0, 0, o);
+            console.info('render order:' + this.renderOrder());
+        },
+
+        renderLast: function(objectName) {
+            var o = this.getObject(objectName),
+                idx = objects.indexOf(o);
+
+            if (idx == 0) {
+                return;
+            }
+            objects.splice(idx, 1);
+            objects.push(0);
+            console.info('render order:' + this.renderOrder());
+        },
+
+        // 提前一位
+        renderSooner: function(objectName) {
+            var o = this.getObject(objectName),
+                idx = objects.indexOf(o);
+
+            if (idx == 0) {
+                return;
+            }
+            objects.splice(idx, 1);
+            objects.splice(idx - 1, 0, o);
+            console.info('render order:' + this.renderOrder());
+        },
+
+        renderLater: function(objectName) {
+            var o = this.getObject(objectName),
+                idx = objects.indexOf(o);
+
+            if (idx == objects.length - 1) {
+                return;
+            }
+            objects.splice(idx, 1);
+            objects.splice(idx + 1, 0, o);
+            console.info('render order:' + this.renderOrder());
+        },
+
+        renderOrder: function() {
+            var s = '[ ';
+            for(var i = 0, max = objects.length; i < max; i++) {
+                s += objects[i].alias + ' ';
+            }
+            s += ']';
+            return s;
         }
     };
 

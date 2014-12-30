@@ -205,6 +205,224 @@ shader不会编译成功并且你会得到下面的错误：
 效果图：
 ![](http://gtms03.alicdn.com/tps/i3/TB1adxnGFXXXXa8aXXX3tsY_pXX-2200-800.png)
 
+### Use of color in the scene
+现在是时候讨论透明度和α混合了。之前我们有说过α通道可以携带物体的透明度信息。但是在上一个例子中我们看到为了实现透明度我们不得不手动的开启α混合功能。当我们在场景中有多个物体时事情就不是这么简单了。接下来让我们看看该如何处理半透明和不透明的物体。
+
+#### Transparency
+获取透明物体的第一个方法是使用多边形图案填充（polygon stippling）。这个技术丢失了一些fragments使得我们可以看穿物体，就好像我们在物体的表面打了很多小洞。
+
+openGL通过<code>glPolygonStipple</code>方法来实现多边形图案填充，但在WebGL中没有这个方法。我们可以通过使用fragment shader中的<code>discard</code>命令丢弃fragment来模拟这种方法。
+
+更通常的做法是我们可以使用α通道来携带透明信息。但是如同之前说过的，直接修改α值并不能更新物体的透明度。
+
+创建透明度相当于需要修改我们放在frame buffer中的fragments。想象这么一个场景，一个半透明的物体放在一个不透明的物体前。为了能成功渲染，我们需要透过这个半透明的物体看到不透明的物体。这就需要我们将物体的近面（near fragments）和远面（far fragments）很好地结合起来以达到透明效果。
+
+同样的，当场景中只有一个半透明物体时，也是相同的逻辑。唯一的区别在于，这个例子中物体的后端对应远面（far fragments），前端对应近面（near fragments）。因此远面和近面需要结合。
+
+为了实现透明，我们需要学习两个WebGL的重要概念：深度测试（depth testing）和α混合。
+
+#### Updated rendering pipeline
+深度测试和α混合是fragments shader处理fragments后的两个可选步骤。如果深度测试没有开启，那么所有的fragments都自动进行α混合。如果深度测试开启，那么那些测试失败的fragments会在流水线中被丢弃并且不再用于其他操作。即是这些fragments不会被渲染，正如ESSL中的discard命令。
+
+下面的图展示了深度测试和α混合的顺序：
+![](http://gtms04.alicdn.com/tps/i4/TB1pvuPGFXXXXXaapXX2ZFq6FXX-864-644.png)
+下面让我们看看什么是深度测试以及它和α混合的关系。
+
+### Depth testing
+每个被fragment shader处理过的fragment都携带着一个相关的深度值。尽管fragments在屏幕上显示时是二维的，但是深度值保存着物体相对屏幕的距离。深度值存储在一个特殊的WebGL缓存中，它叫做depth buffer或者z-buffer。
+
+在fragment被fragment shader处理后，它就可以用作深度测试了，当然只有深度测试被激活时。比如有个变量<code>gl</code>变量用于表示WebGL环境，我们可以这样激活它：
+
+	gl.enable(gl.DEPTH_TEST);
+	
+深度测试将fragment的深度值和已存储在depth buffer中的相同位置的fragment深度值做对比。深度测试会决定某个fragment是否会被用于后续工作。
+
+只有通过深度测试的fragment会被继续处理。相反，没通过的都会被抛弃。
+
+当深度测试开启时，正常情况下深度值较小的fragment将会被保留。
+
+深度测试的操作是可交换的。这意味着不论哪个物体先被渲染，只要深度测试开启着，我们得到的结果总是一致的。
+
+让我们查看一个例子。在下面的图中，有一个椎体和球体。我们先看看深度测试关闭的场景：
+
+	gl.disable(gl.DEPTH_TEST);
+	
+球体首先被渲染，椎体与球体交叉的fragment并没有被丢弃，这是因为我们没有启用深度测试。
+
+现在我们开启深度测试。球体先被渲染，由于椎体交叉的fragment有更高的深度值（它们离屏幕更远），它们在深度测试中就被抛弃了。
+![](http://gtms02.alicdn.com/tps/i2/TB1lPiUGFXXXXcnXFXXaWtyLXXX-1144-864.png)
+
+#### Depth function
+在一些应用中，我们可能会想改变默认的深度测试。这样我们就需要使用WebGL提供的<code>gl.depthFunc</code>方法。
+
+这个方法只有一个参数，用法如下：
+![](http://gtms01.alicdn.com/tps/i1/TB1eMC1GFXXXXafXXXXnwIYYpXX-1308-604.png)
+
+> WebGL中默认关闭深度测试。当开启时，如果没有设定特定的值，gl.LESS会作为默认值。
+
+### Alpha blending
+如果fragment通过了深度测试它就可以做α混合了。但是如果深度测试被禁止了，那么所有的fragment都会做α混合。
+
+α混合可以通过以下的方式启用：
+
+	gl.enable(gl.BLEND);
+	
+对于通过的fragment，α混合操作会从frame buffer中读取相同位置的颜色并且使用线性插值（linear interpolation）创建基于fragment shader计算出的颜色（gl_FragColor）和frame buffer的新颜色。
+
+> α混合同样默认被禁止。
+
+#### Blending function
+如果混合启用，接下来就需要定义混合函数。这个函数将决定如何将我们希望显示的颜色（source）和目前frame buffer中已有的颜色（destination）结合起来。
+
+我们可以这样结合：
+
+	Color Output = S * sW + D * dw
+	
+这里，
+
+* S: source color
+* D: destination color
+* sW: source scaling factor
+* dW: destination scaling factor
+* S.rgb: rgb components of the source color
+* S.a: alpha component of the source color
+* D.rgb: rgb components of the destination color
+* D.a: alpha component of the destination color
+
+在这里特别需要注意的是渲染顺序对于source和destination是有影响的。拿前面的例子为例，如果球体先渲染那么它在blending操作中就是destination，因为它的fragments会先存储在frame buffer中。用更通俗的话说，α混合是不可交换的操作。
+![](http://gtms01.alicdn.com/tps/i1/TB1kM1SGFXXXXcJXVXXmMgeMXXX-1146-610.png)
+
+#### Separate blending functions
+同样我们也可以决定RGB通道和α通道如何混合。我们需要使用<code>gl.blendFuncSeparate</code>方法。
+
+我们需要分别定义函数：
+
+	Color output = S.rgb * sW.rgb + D.rgb * dW.rgb
+	Alpha output = S.a * sW.a + D.a * dw.a
+	
+那么我们就能得到以下：
+
+	Color output = S.rgb * S.a + D.rgb * (1 - S.a)
+	Alpha output = S.a * 1 + D.a * 0
+	
+对应的代码就是：
+
+	gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ZERO)
+	
+这和我们之前使用<code>gl.blendFunc</code>的效果是一样的。
+
+#### Blend equation
+我们可能并不希望像之前那样做插值，也许我们想使用一个减去另一个。对于这种情况，WebGL提供了<code>gl.blendEquation</code>函数。这个函数接受一个参数，它决定了source和destination之间的操作。
+
+gl.blendEquation(gl.FUNC_ADD)对应
+	
+	Color output = S * sW + D * dW
+	
+gl.blendEquation(gl.FUNC_SUBTRACT)对应
+	
+	Color output = S * sW - D * dW
+	
+gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT)对应
+
+	Color output = D * dW - S * sW
+	
+对于<code>gl.blendEquationSeparate</code>同样也有这些操作。
+
+#### Blend color
+WebGL提供了设置因子的参数<code>gl.CONSTANT_COLOR</code>和<code>gl.ONE_MINUS_CONSTANT_COLOR</code>。这些因子可以在<code>gl.blendFunc</code>和<code>gl.blendFuncSeparate</code>中使用。需要注意的是，我们要在blend color决定前设置。我们可以使用<code>gl.blendColor</code>来设置。
+
+#### WebGL alpha blending API
+以下是α混合相关的所有API：
+![](http://gtms03.alicdn.com/tps/i3/TB12.iTGFXXXXX7XVXXgTBgGXXX-1308-1310.png)
+
+![](http://gtms04.alicdn.com/tps/i4/TB1eM1ZGFXXXXX5XpXXJFHWVXXX-1304-1318.png)
+
+#### Alpha blending modes
+根据sW和dW参数的不同，我们可以创建不同的混合模式。在这章中我们将学习如何实现相加，相减，相乘以及插值混合模式。所有的模式都基于以下公式（前面提到过）：
+
+	Color output = S * sW + D * dW
+	
+##### Additive blending
+这仅仅就是将source和destination相加，会得到一个更浅的混合：
+
+	gl.blendFunc(gl.ONE, gl.ONE)
+	
+即是：
+	
+	Color output = S * 1 + D * 1
+	Color output = S + D
+	
+因为color值的域仅仅是[0, 1]，所以最大值只能是1。当所有通道都为1时结果就是白色。
+
+##### Subtractive blending
+同样，相减可以这样写：
+
+	gl.blendEquation(gl.FUNC_SUBTRACT)
+	gl.blendFunc(gl.ONE, gl.ONE)
+	
+即是：
+	
+	Color output = S * 1 - D * 1
+	Color output = S - D
+	
+同理，当所有通道为0时显示黑色。
+
+##### Multiplicative blending
+我们可以这样书写相乘：
+
+	gl.blendFunc(gl.DST_COLOR, gl.ZERO)
+	
+即是：
+
+	Color output = S * D + D * 0
+	Color output = S * D
+	
+这样会得到一个更深的混合。
+
+##### Interpolative blending
+如果我们设置sW为S.a，并且设置dW为1-S.a，那么
+
+	Color output = S * S.a + D * (1 - S.a)
+	
+这会创建一个基于原始颜色和目标颜色的插值，代码这样写：
+
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+	
+只要目标fragments能通过深度测试我们就可以利用插值混合来创建透明效果。这意味着我们需要从后往前渲染物体（结合之前的圆锥和球体来理解）。
+
+#### Creating transparent objects
+我们已经知道如果需要创建透明物体需要：
+
+1. 开启α混合并选择混合函数。
+2. 从后往前的渲染物体。
+
+那如果没有相关的物体我们如何创建透明物体呢？换句话说我们如何创建只有一个的透明物体。
+
+其中一个方法是使用表面选择（face culling）。
+
+表面选择允许我们只渲染物体的正面或是背面。在上一个例子中你可以通过Back Face Culling来选择。
+
+使用前面使用的颜色方体，我们会让它变得透明。为此，我们需要：
+
+1. 开启α混合并选择混合函数。
+2. 开启表面选择功能。
+3. 渲染背面（通过剔除正面）。
+4. 渲染正面（通过剔除背面）。
+
+和其他选择项一样，culling也是默认被关闭的。我们需要开启它：
+
+	gl.enable(gl.FACE_CULLING);
+	
+为了只渲染背面，我们可以在<code>drawArrays</code>或者<code>drawElements</code>之前调用<code>gl.cullFace(gl.FRONT)</code>，相应地我们可以通过<code>gl.cullFace(gl.BACK)</code>来渲染正面。
+
+下面的图表展示了使用α混合和表面选择来创建透明物体的步骤。
+![]()
+
+下面我们看一看实际的代码：
+
+
+
+
 
 
 
