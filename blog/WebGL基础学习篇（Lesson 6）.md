@@ -390,6 +390,14 @@ WebGL提供了设置因子的参数<code>gl.CONSTANT_COLOR</code>和<code>gl.ONE
 	
 只要目标fragments能通过深度测试我们就可以利用插值混合来创建透明效果。这意味着我们需要从后往前渲染物体（结合之前的圆锥和球体来理解）。
 
+好了，来看下相关的code：
+
+[α混合的椎体和球体](http://gonghao.alidemo.cn/exercise/chapter6/ex6-5.html)
+
+<[源码](https://github.com/fem-d/webGL/blob/master/chapter6/ex6-5.html)>
+
+![](http://gtms01.alicdn.com/tps/i1/TB1z.rYGFXXXXXRapXXS5_ALFXX-2398-842.png)
+
 #### Creating transparent objects
 我们已经知道如果需要创建透明物体需要：
 
@@ -416,10 +424,28 @@ WebGL提供了设置因子的参数<code>gl.CONSTANT_COLOR</code>和<code>gl.ONE
 为了只渲染背面，我们可以在<code>drawArrays</code>或者<code>drawElements</code>之前调用<code>gl.cullFace(gl.FRONT)</code>，相应地我们可以通过<code>gl.cullFace(gl.BACK)</code>来渲染正面。
 
 下面的图表展示了使用α混合和表面选择来创建透明物体的步骤。
-![]()
+![](http://gtms03.alicdn.com/tps/i3/TB1IUdbHXXXXXaQXFXXfvkiHpXX-776-514.png)
 
-下面我们看一看实际的代码：
+下面我们看一看实际的样子：
 
+[前景背景图](http://gonghao.alidemo.cn/exercise/chapter6/ex6-6.html)
+
+<[源码](https://github.com/fem-d/webGL/blob/master/chapter6/ex6-6.html)>
+
+![](http://gtms02.alicdn.com/tps/i2/TB1rVBfHXXXXXXkXpXX1qxQIXXX-2392-828.png)
+
+在上面的例子中，我们使用了这样的代码控制culling：
+
+	if(showBackFace){
+		gl.cullFace(gl.FRONT);
+		gl.drawElements(gl.TRIANGLES, object.indices.length, gl.UNSIGNED_SHORT,0);
+	}
+	if (showFrontFace){                    
+	  	gl.cullFace(gl.BACK);
+	  	gl.drawElements(gl.TRIANGLES, object.indices.length, gl.UNSIGNED_SHORT,0);
+	}
+	
+很简单，如果显示背景，把前景挖掉；如果显示前景，把背景挖掉。如果都有，那么全都渲染了。
 
 
 

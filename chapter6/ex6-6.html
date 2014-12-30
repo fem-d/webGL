@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Culling</title>
+        <style>
+            .leftPanel {
+                width: 640px;
+                height: 700px;
+                float: left;
+            }
+
+            label {
+                width: 150px;
+                display: inline-block;
+            }
+
+            .rightPanel {
+                margin-left: 500px;
+                height: 700px;
+            }
+
+            ul {
+                padding: 0;
+                overflow: hidden;
+            }
+
+            ul li {
+                list-style: none;
+                float: left;
+            }
+        </style>
+        <script src="http://g.tbcdn.cn/kissy/k/1.4.3/seed.js" charset="utf-8"></script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec4 aVertexColor;
+
+            uniform bool uUseVertexColor;
+            uniform vec4 uMaterialDiffuse;
+            uniform vec4 uMaterialAmbient;
+            uniform float uAlpha;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+
+            uniform vec3 uLightPosition;
+            uniform vec4 uLightAmbient;
+            uniform vec4 uLightDiffuse;
+
+            varying vec4 vColor;
+
+            void main(void) {
+
+                vec4 vertex = uMVMatrix * vec4(aVertexPosition, 1.0);
+
+                float lambertTerm = 1.0;
+
+                vec4 Ia = uLightAmbient * uMaterialAmbient;
+                vec4 Id = vec4(0.0);
+
+                if (uUseVertexColor) {
+                    Id = uLightDiffuse * aVertexColor * lambertTerm;
+                } else {
+                    Id = uLightDiffuse * uMaterialDiffuse * lambertTerm;
+                }
+
+                vColor = Ia + Id;
+                vColor.a = uAlpha;
+
+                //Final vertex position
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            uniform vec4 uMaterialDiffuse;
+            uniform bool uWireframe;
+
+            //varyings
+            varying vec4 vColor;
+
+            void main(void) {
+                if (uWireframe) {
+                    gl_FragColor = uMaterialDiffuse;
+                } else {
+                    gl_FragColor = vColor;
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <div class="leftPanel">
+            <h2>Culling</h2>
+            <div class="funcCon">
+                <label data-type="blending"><input type="checkbox" checked="checked">Blending</label>
+                <label data-type="show-front"><input type="checkbox" checked="checked">Show Front</label>
+                <label data-type="show-back"><input type="checkbox" checked="checked">Show Back</label>
+            </div>
+            <p>Alpha Value:<span id="labelA">0.5</span><input id="sliderA" type="range" min="0" max="100" step="1" value="50"></p>
+            <ul>
+                <li>
+                    <p>Blend Function</p>
+                    <select name="Blend Equation" id="selBlendEquation">
+                        <option value="FUNC_ADD" selected="selected">gl.FUNC_ADD</option>
+                        <option value="FUNC_SUBTRACT">gl.FUNC_SUBTRACT</option>
+                        <option value="FUNC_REVERSE_SUBTRACT">gl.FUNC_REVERSE_SUBTRACT</option>
+                    </select>
+                </li>
+                <li>
+                    <p>Source</p>
+                    <select name="Source" id="selSource">
+                        <option value="ZERO">gl.ZERO</option>
+                        <option value="ONE">gl.ONE</option>
+                        <option value="SRC_COLOR">gl.SRC_COLOR</option>
+                        <option value="DST_COLOR">gl.DST_COLOR</option>
+                        <option value="SRC_ALPHA" selected="selected">gl.SRC_ALPHA</option>
+                        <option value="DST_ALPHA">gl.DST_ALPHA</option>
+                        <option value="CONSTANT_COLOR">gl.CONSTANT_COLOR</option>
+                        <option value="CONSTANT_ALPHA">gl.CONSTANT_ALPHA</option>
+                        <option value="ONE_MINUS_SRC_ALPHA">gl.ONE_MINUS_SRC_ALPHA</option>
+                        <option value="ONE_MINUS_DST_ALPHA">gl.ONE_MINUS_DST_ALPHA</option>
+                        <option value="ONE_MINUS_SRC_COLOR">gl.ONE_MINUS_SRC_COLOR</option>
+                        <option value="ONE_MINUS_DST_COLOR">gl.ONE_MINUS_DST_COLOR</option>
+                        <option value="ONE_MINUS_CONSTANT_COLOR">gl.ONE_MINUS_CONSTANT_COLOR</option>
+                        <option value="ONE_MINUS_CONSTANT_ALPHA">gl.ONE_MINUS_CONSTANT_ALPHA</option>
+                        <option value="SRC_ALPHA_SATURATE">gl.SRC_ALPHA_SATURATE</option>
+                    </select>
+                </li>
+                <li>
+                    <p>Destination</p>
+                    <select name="Target" id="selTarget">
+                        <option value="ZERO">gl.ZERO</option>
+                        <option value="ONE">gl.ONE</option>
+                        <option value="SRC_COLOR">gl.SRC_COLOR</option>
+                        <option value="DST_COLOR">gl.DST_COLOR</option>
+                        <option value="SRC_ALPHA">gl.SRC_ALPHA</option>
+                        <option value="DST_ALPHA">gl.DST_ALPHA</option>
+                        <option value="CONSTANT_COLOR">gl.CONSTANT_COLOR</option>
+                        <option value="CONSTANT_ALPHA">gl.CONSTANT_ALPHA</option>
+                        <option selected="selected" value="ONE_MINUS_SRC_ALPHA">gl.ONE_MINUS_SRC_ALPHA</option>
+                        <option value="ONE_MINUS_DST_ALPHA">gl.ONE_MINUS_DST_ALPHA</option>
+                        <option value="ONE_MINUS_SRC_COLOR">gl.ONE_MINUS_SRC_COLOR</option>
+                        <option value="ONE_MINUS_DST_COLOR">gl.ONE_MINUS_DST_COLOR</option>
+                        <option value="ONE_MINUS_CONSTANT_COLOR">gl.ONE_MINUS_CONSTANT_COLOR</option>
+                        <option value="ONE_MINUS_CONSTANT_ALPHA">gl.ONE_MINUS_CONSTANT_ALPHA</option>
+                    </select>
+                </li>
+            </ul>
+        </div>
+        <div class="rightPanel">
+            <canvas id='canvas-element-id' width='500' height='400' style="margin:0 auto;display:block;">
+                Your browser does not support the HTML5 canvas element.
+            </canvas>
+        </div>
+
+        <script src="library/gl-matrix-min.js"></script>
+        <script>
+            KISSY.config({
+                packages:[
+                    {
+                        tag: +new Date(),
+                        debug: true,
+                        name: "lib",
+                        path: "library",
+                        charset: "utf-8",
+                        ignorePackageNameInUri: true
+                    }
+                ]
+            });
+        </script>
+        <script>
+            var gl, prg, width, height;
+        </script>
+        <script src="ex6-6.js"></script>
+    </body>
+</html>
