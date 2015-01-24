@@ -447,6 +447,25 @@ WebGL提供了设置因子的参数<code>gl.CONSTANT_COLOR</code>和<code>gl.ONE
 	
 很简单，如果显示背景，把前景挖掉；如果显示前景，把背景挖掉。如果都有，那么全都渲染了。
 
+最后让我们看一个例子：
+
+[透明墙和椎体](http://gonghao.alidemo.cn/exercise/chapter6/ex6-7.html)
+
+<[源码](https://github.com/fem-d/webGL/blob/master/chapter6/ex6-7.html)>
+
+![](http://gtms02.alicdn.com/tps/i2/TB1rVBfHXXXXXXkXpXX1qxQIXXX-2392-828.png)
+
+
+在这章中，我们学习了如何在物体，光照，场景中使用颜色。尤其是如何vertex着色，fragment着色，以及纯色。
+
+场景中的光照颜色是由光照模型决定的。我们已经知道如何使用uniform来简化多光源的问题。我们还学习了如何创建径向光源。
+
+单单一个alpha值并不会使得物体透明，插值混合（interpolative blending）是创建透明物体必需的。另外，请记住物体需要由后往前渲染。
+
+面剔除（face culling）在多个透明物体的场景能创建更好的结果。
+
+在下一章中《纹理》中，我们将学习如何使用图片覆盖物体。为此我们需要用到<code>WebGL textures</code>。
+
 
 
 

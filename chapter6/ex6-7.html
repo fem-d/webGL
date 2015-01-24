@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Seeing through wall</title>
+        <style>
+
+            label {
+                width: 150px;
+                display: inline-block;
+            }
+
+            ul {
+                padding: 0;
+                overflow: hidden;
+            }
+
+            ul li {
+                list-style: none;
+                float: left;
+            }
+
+            .ctrlCon {
+                padding: 20px 0 0 20px;
+            }
+        </style>
+        <script src="http://g.tbcdn.cn/kissy/k/1.4.3/seed.js" charset="utf-8"></script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            attribute vec4 aVertexColor;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+            uniform vec4 uMaterialDiffuse;
+            uniform vec3 uPositionLight;
+
+            varying vec3 vNormal;
+            varying vec3 vLightRay;
+            varying vec4 vFinalColor;
+
+            void main(void) {
+
+                vFinalColor = uMaterialDiffuse;
+
+                vec4 vertex = uMVMatrix * vec4(aVertexPosition, 1.0);
+
+                vNormal = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+
+                vec4 positionLight = vec4(uPositionLight, 1.0);
+
+                vLightRay = vertex.xyz - positionLight.xyz;
+
+                gl_Position = uPMatrix * vertex;
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            uniform bool uWireframe;
+            uniform vec4 uLightAmbient;
+            uniform vec4 uLightDiffuse;
+            uniform vec4 uMaterialAmbient;
+            uniform vec4 uMaterialDiffuse;
+
+            varying vec3 vNormal;
+            varying vec3 vLightRay;
+            varying vec4 vFinalColor;
+
+            void main(void) {
+                if (uWireframe) {
+                    gl_FragColor = vFinalColor;
+                } else {
+                    vec3 L = normalize(vLightRay);
+                    vec3 N = normalize(vNormal);
+
+                    float lambertTerm = clamp(dot(N, -L), 0.0, 1.0);
+
+                    vec4 Ia = uLightAmbient * uMaterialAmbient;
+
+                    vec4 Id = uLightDiffuse * uMaterialDiffuse * lambertTerm;
+
+                    gl_FragColor = vec4(Ia.rbg + Id.rgb, uMaterialDiffuse.a);
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <h2>Seeing through wall</h2>
+        <div>
+            <canvas id='canvas-element-id' width='1000' height='400' style="margin:0 auto;display:block;">
+                Your browser does not support the HTML5 canvas element.
+            </canvas>
+        </div>
+        <div class="ctrlCon">
+            <div class="funcCon">
+                <label data-type="cone-first"><input name="type" type="radio" checked="checked">Cone First</label>
+                <label data-type="wall-first"><input name="type" type="radio">Wall First</label>
+            </div>
+            <p>Wall alpha:<span id="labelA">1.0</span><input id="sliderA" type="range" min="1" max="10" step="1" value="10"></p>
+            <p>Cone alpha:<span id="labelB">1.0</span><input id="sliderB" type="range" min="1" max="10" step="1" value="10"></p>
+        </div>
+
+        <script src="library/gl-matrix-min.js"></script>
+        <script>
+            KISSY.config({
+                packages:[
+                    {
+                        tag: +new Date(),
+                        debug: true,
+                        name: "lib",
+                        path: "library",
+                        charset: "utf-8",
+                        ignorePackageNameInUri: true
+                    }
+                ]
+            });
+        </script>
+        <script>
+            var gl, prg, width, height;
+        </script>
+        <script src="ex6-7.js"></script>
+    </body>
+</html>
