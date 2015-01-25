@@ -129,10 +129,42 @@ OK，我们总结一下创建纹理的步骤：
 
 ![](http://gtms04.alicdn.com/tps/i4/TB1GPa9HXXXXXcvXFXXz1YeNFXX-1500-776.png)
 
+### Texture filter modes
 
+现在我们已经知道了纹理如何在fragment shader中使用，但是还仅限于最基本的使用场景，在更复杂的情况下仍然有许多问题。
 
+拿刚才的demo为例，当我们放大时，我们会发现WebGL logo边缘会出现很多锯齿，当logo很小时也会有这样的问题。
 
+那么这些锯齿是怎么出现的呢？
 
+想想上一章中我们讲到的vertex colors会做插值(interpolate)，因此fragment shader得到的会是一个平稳的颜色过渡。纹理坐标也是使用相同的方式，纹理坐标与屏幕像素对应。在最理想的情况下，它们会是1比1对应上的。
+
+![](http://gtms03.alicdn.com/tps/i3/TB1kX1_HXXXXXc8XFXX7B6uWXXX-628-556.png)
+
+但是，在真实情况下，纹理一般都不在本来的位置上显示。比如说放大和缩小，这都是纹理比屏幕有更低或更高的分辨率。
+
+![](http://gtms04.alicdn.com/tps/i4/TB1pKG.HXXXXXbDXFXXkJrG7XXX-1090-526.png)
+
+当一个纹理被放大或缩小时，texture sampler会返回什么颜色就是有歧义的了。考虑一下这种情况，纹理被稍稍放大了：
+
+![](http://gtms01.alicdn.com/tps/i1/TB1eK_gHXXXXXazXXXXvSq.GFXX-456-426.png)
+
+决定左上角或者正中的颜色很容易，但是马赛克（texels）之间的颜色呢？这都是由你的过滤模式决定的。我们可以通过纹理过滤控制纹理取样的方式以达到我们想要的结果。
+
+设置纹理过滤非常简单，我们在前面的例子里已经看过了。
+
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	
+和WebGL中大多数方法一样，<code>texParamteri</code>会操作当前绑定的纹理，而且每个纹理都必须设置。这就是说不同的纹理可以有不同的过滤方式。
+
+在这个例子中，我们同时将放大过滤器（TEXTURE_MAG_FILTER）和缩小过滤器（TEXTURE_MIN_FILTER）设置为了<code>NEAREST</code>。这第三个参数可以传递不同的值，最快理解的方法就是实际看一下。
+
+[texture filter属性](http://gonghao.alidemo.cn/exercise/chapter7/ex7-2.html)
+
+[<源码>](https://github.com/fem-d/webGL/blob/master/chapter7/ex7-2.html)
+
+![](http://gtms02.alicdn.com/tps/i2/TB1_hi_HXXXXXabXVXXaRVj2FXX-1002-806.png)
 
 
 
