@@ -1,8 +1,8 @@
 /**
  *
  */
-KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, lib/scene, lib/sceneTransforms, lib/floor, lib/axis',
-    function(S, Node, WebGLApp, Program, Camera, CameraInteractor, Scene, SceneTransforms, Floor, Axis) {
+KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, lib/scene, lib/sceneTransforms, lib/texture, lib/floor, lib/axis',
+    function(S, Node, WebGLApp, Program, Camera, CameraInteractor, Scene, SceneTransforms, Texture, Floor, Axis) {
 
     var $ = Node.all;
     var app;
@@ -16,6 +16,7 @@ KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, li
     var useVertexColors = false;
 
     var texture = null;
+    var cubeTexture = null;
 
     var main = {
 
@@ -28,8 +29,6 @@ KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, li
             app.loadSceneHook = this.load;
             app.drawSceneHook = this.draw;
             app.run();
-
-            this.bindEvent();
         },
 
         configure: function() {
@@ -43,8 +42,7 @@ KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, li
             var camera = new Camera({
                 type: CAMERA_ORBITING_TYPE
             });
-            camera.goHome([0, 0, 0]);
-            camera.dolly(-4);
+            camera.goHome([0, 0, 4]);
             camera.setFocus([0.0, 0.0, 0.0]);
             camera.setAzimuth(45);
             camera.setElevation(-30);
@@ -81,7 +79,8 @@ KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, li
                 "uAlpha",
                 "uUseVertexColor",
                 "uUseLambert",
-                "uSampler"
+                "uSampler",
+                "uCubeSampler"
             ];
             // set prg
             Program.load(attributeList, uniformList);
@@ -93,18 +92,31 @@ KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, li
             gl.uniform1i(prg.uUseVertexColor, useVertexColors);
             gl.uniform1i(prg.uUseLambert, true);
 
-            texture = gl.createTexture();
+            texture = new Texture();
+            texture.setImage('textures/webgl.png');
 
-            var image = new Image();
-            image.onload = function() {
-                gl.bindTexture(gl.TEXTURE_2D, texture);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-                gl.generateMipmap(gl.TEXTURE_2D);
-                gl.bindTexture(gl.TEXTURE_2D, null);
-            }
-            image.src = 'textures/webgl.png';
+            function loadCubemapFace(gl, target, texture, url) {
+                var image = new Image();
+                image.onload = function() {
+                    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+                    gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+                    gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+                }
+                image.src = url;
+            };
+
+            cubeTexture = gl.createTexture();
+
+            gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeTexture);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+            loadCubemapFace(gl, gl.TEXTURE_CUBE_MAP_POSITIVE_X, cubeTexture, 'textures/cubemap/positive_x.png');
+            loadCubemapFace(gl, gl.TEXTURE_CUBE_MAP_NEGATIVE_X, cubeTexture, 'textures/cubemap/negative_x.png');
+            loadCubemapFace(gl, gl.TEXTURE_CUBE_MAP_POSITIVE_Y, cubeTexture, 'textures/cubemap/positive_y.png');
+            loadCubemapFace(gl, gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, cubeTexture, 'textures/cubemap/negative_y.png');
+            loadCubemapFace(gl, gl.TEXTURE_CUBE_MAP_POSITIVE_Z, cubeTexture, 'textures/cubemap/positive_z.png');
+            loadCubemapFace(gl, gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, cubeTexture, 'textures/cubemap/negative_z.png');
         },
 
         load: function() {
@@ -137,8 +149,8 @@ KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, li
                     gl.uniform1i(prg.uWireframe, object.wireframe);
 
                     gl.enableVertexAttribArray(prg.aVertexPosition);
-                    //gl.disableVertexAttribArray(prg.aVertexNormal);
-                    //gl.disableVertexAttribArray(prg.aVertexColor);
+                    gl.disableVertexAttribArray(prg.aVertexNormal);
+                    gl.disableVertexAttribArray(prg.aVertexColor);
 
                     gl.bindBuffer(gl.ARRAY_BUFFER, object.vbo);
                     gl.vertexAttribPointer(prg.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
@@ -158,8 +170,12 @@ KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, li
                         gl.vertexAttribPointer(prg.aVertexTextureCoords, 2, gl.FLOAT, false, 0, 0);
 
                         gl.activeTexture(gl.TEXTURE0);
-                        gl.bindTexture(gl.TEXTURE_2D, texture);
+                        gl.bindTexture(gl.TEXTURE_2D, texture.tex);
                         gl.uniform1i(prg.uSampler, 0);
+
+                        gl.activeTexture(gl.TEXTURE1);
+                        gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeTexture);
+                        gl.uniform1i(prg.uCubeSampler, 1);
                     }
 
                     // 清除webgl中的warning
@@ -168,11 +184,11 @@ KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, li
 //                    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 //                    gl.enableVertexAttribArray(0);
 
-//                    if(!object.wireframe){
-//                        gl.bindBuffer(gl.ARRAY_BUFFER, object.nbo);
-//                        gl.vertexAttribPointer(prg.aVertexNormal, 3, gl.FLOAT, false, 0, 0);
-//                        gl.enableVertexAttribArray(prg.aVertexNormal);
-//                    }
+                    if(!object.wireframe){
+                        gl.bindBuffer(gl.ARRAY_BUFFER, object.nbo);
+                        gl.vertexAttribPointer(prg.aVertexNormal, 3, gl.FLOAT, false, 0, 0);
+                        gl.enableVertexAttribArray(prg.aVertexNormal);
+                    }
                     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object.ibo);
 
                     if (object.wireframe) {
@@ -187,69 +203,6 @@ KISSY.use('node, lib/webGLApp, lib/program, lib/camera, lib/cameraInteractor, li
             } catch(err) {
                 console.error(err.message);
             }
-        },
-
-        // Options
-        bindEvent: function() {
-
-            var self = this;
-            $(".mag-filter").delegate("click", "[type=radio]", function(e) {
-                var $target = $(e.currentTarget),
-                    type = $target.attr("data-type"),
-                    p2;
-
-                switch(type) {
-                    case "nearest":
-                        p2 = gl.NEAREST;
-                        break;
-                    case "linear":
-                        p2 = gl.LINEAR;
-                        break;
-                }
-                gl.bindTexture(gl.TEXTURE_2D, texture);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, p2);
-                gl.bindTexture(gl.TEXTURE_2D, null);
-            });
-
-            $(".min-filter").delegate("click", "[type=radio]", function(e) {
-                var $target = $(e.currentTarget),
-                    type = $target.attr("data-type"),
-                    p2;
-
-                switch(type) {
-                    case "nearest":
-                        p2 = gl.NEAREST;
-                        break;
-                    case "linear":
-                        p2 = gl.LINEAR;
-                        break;
-                    case "nearest-mipmap-nearest":
-                        p2 = gl.NEAREST;
-                        break;
-                    case "linear-mipmap-nearest":
-                        p2 = gl.LINEAR;
-                        break;
-                    case "nearest-mipmap-linear":
-                        p2 = gl.NEAREST_MIPMAP_NEAREST;
-                        break;
-                    case "linear-mipmap-linear":
-                        p2 = gl.LINEAR_MIPMAP_NEAREST;
-                        break;
-                }
-                gl.bindTexture(gl.TEXTURE_2D, texture);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, p2);
-                gl.bindTexture(gl.TEXTURE_2D, null);
-            });
-
-            $(".slider").on("change", function(e) {
-                var $target = $(e.currentTarget),
-                    type = $target.attr("data-type"),
-                    val = $target.val()/10;
-                $(".dis").text(val.toFixed(1));
-                app.camera.dolly(-val);
-                app.camera.update();
-                self.draw();
-            });
         }
     };
 

@@ -1,0 +1,68 @@
+<!DOCTYPE>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Multiple Texture</title>
+        <script src="http://g.tbcdn.cn/kissy/k/1.4.2/seed.js" charset="utf-8"></script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec2 aVertexTextureCoords;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+
+            varying vec2 vTextureCoord;
+
+            void main(void) {
+
+                vTextureCoord = aVertexTextureCoords;
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            uniform sampler2D uSampler;
+            uniform sampler2D uSampler2;
+
+            varying vec2 vTextureCoord;
+
+            void main(void) {
+                gl_FragColor = texture2D(uSampler2, vTextureCoord) * texture2D(uSampler, vTextureCoord);
+            }
+        </script>
+        <style>
+            label {
+                margin-right: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id='canvas-element-id' width='1100' height='400' style="margin:0 auto;display:block;">
+            Your browser does not support the HTML5 canvas element.
+        </canvas>
+
+        <script src="library/gl-matrix-min.js"></script>
+        <script>
+            KISSY.config({
+                packages:[
+                    {
+                        tag: +new Date(),
+                        debug: true,
+                        name: "lib",
+                        path: "library",
+                        charset: "utf-8",
+                        ignorePackageNameInUri: true
+                    }
+                ]
+            });
+        </script>
+        <script>
+            var gl, prg, width, height;
+        </script>
+        <script src="ex7-4.js"></script>
+    </body>
+</html>
