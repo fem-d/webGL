@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Picking</title>
+        <script src="http://g.tbcdn.cn/kissy/k/1.4.2/seed-min.js" charset="utf-8"></script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            attribute vec4 aVertexColor;
+            attribute vec2 aVertexTextureCoords;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat4 uNMatrix;
+
+            uniform vec3 uLightPosition;
+            uniform vec4 uMaterialDiffuse;
+            uniform bool uWireframe;
+            uniform bool uUseVertexColor;
+            uniform bool uUseTextures;
+
+            varying vec3 vNormal;
+            varying vec3 vLightRay;
+            varying vec3 vEyeVec;
+            varying vec4 vFinalColor;
+            varying vec2 vTextureCoord;
+
+            void main(void) {
+
+                vFinalColor = uMaterialDiffuse;
+                vTextureCoord = vec2(0.0);
+
+                if (uUseVertexColor) {
+                    vFinalColor = aVertexColor;
+                }
+                if (uUseTextures) {
+                    vTextureCoord = aVertexTextureCoords;
+                }
+
+                vec4 vertex = uMVMatrix * vec4(aVertexPosition, 1.0);
+                vNormal = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+                vec4 light = vec4(uLightPosition,1.0);
+                vLightRay = vertex.xyz-light.xyz;
+                vEyeVec = -vec3(vertex.xyz);
+
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+
+            uniform bool uWireframe;
+            uniform bool uUseTextures;
+
+            uniform vec4 uLightAmbient;
+            uniform vec4 uLightDiffuse;
+            uniform vec4 uMaterialAmbient;
+            uniform vec4 uMaterialDiffuse;
+            uniform vec4 uPickingColor;
+            uniform bool uOffscreen;
+
+            uniform sampler2D uSampler;
+
+            varying vec3 vNormal;
+            varying vec3 vLightRay;
+            varying vec3 vEyeVec;
+            varying vec4 vFinalColor;
+            varying vec2 vTextureCoord;
+
+            void main(void) {
+                if (uOffscreen) {
+                    gl_FragColor = uPickingColor;
+                    return;
+                }
+
+                if (uWireframe) {
+                    gl_FragColor = vFinalColor;
+                } else {
+                    //ambient term
+                    vec4 Ia = uLightAmbient * uMaterialAmbient;
+
+                    //diffuse term
+                    vec3 L = normalize(vLightRay);
+                    vec3 N = normalize(vNormal);
+                    float lambertTerm = max(dot(N, -L), 0.33);
+                    vec4 Id = uLightDiffuse * uMaterialDiffuse * lambertTerm;
+
+                    //specular term
+                    vec3 E = normalize(vEyeVec);
+                    vec3 R = reflect(L, N);
+                    float specular = pow( max(dot(R, E), 0.5), 50.0);
+                    vec4 Is = vec4(0.5) * specular;
+
+                    //result
+                    vec4 finalColor = Ia + Id + Is;
+
+                    if (uMaterialDiffuse.a != 1.0) {
+                        finalColor.a = uMaterialDiffuse.a;
+                    } else {
+                        finalColor.a = 1.0;
+                    }
+
+                    if (uUseTextures){
+                        gl_FragColor = finalColor * texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+                    } else{
+                        gl_FragColor = finalColor;
+                    }
+                }
+
+            }
+        </script>
+    </head>
+    <body>
+        <p style="width:1100px;margin: 0 auto;">按住shift选中多个，按住alt改变Z轴</p>
+        <p style="width:1100px;margin: 0 auto;height: 20px;" id="selected-id">你当前没有选择物体</p>
+        <canvas id='canvas-element-id' width='1100' height='400' style="margin:0 auto;display:block;">
+            Your browser does not support the HTML5 canvas element.
+        </canvas>
+        <p style="width:1100px;margin: 0 auto;"><label><input id="show-picking-btn" type="checkbox">显示里世界</label></p>
+
+        <script src="library/gl-matrix-min.js"></script>
+        <script>
+            KISSY.config({
+                packages:[
+                    {
+                        tag: +new Date(),
+                        debug: true,
+                        name: "lib",
+                        path: "library",
+                        charset: "utf-8",
+                        ignorePackageNameInUri: true
+                    }
+                ]
+            });
+        </script>
+        <script>
+            var gl, prg, width, height;
+        </script>
+        <script src="ex8-2.js"></script>
+    </body>
+</html>
