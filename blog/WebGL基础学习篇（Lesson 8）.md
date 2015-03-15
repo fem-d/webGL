@@ -427,6 +427,19 @@ WebGL允许我们使用<code>readPixels</code>来读取framebuffer中的值。
 
 ![](http://gtms03.alicdn.com/tps/i3/TB1gyGxHXXXXXcXapXXBP3H1pXX-1846-794.png)
 
+在这章中，我们学习了如何在WebGL中实现基于颜色选取。基于diffuse color选取物体并不是一个好的主意，特别是一个场景中有多个一样颜色的物体时，更好的方式是选取一个唯一的属性。我们通常把这个叫做选取（颜色/物体）标签。
+
+在讨论选取算法时，我们学到WebGL提供了生成offscreen framebuffers的机制，而且onscreen会渲染默认的framebuffer中的内容。
+
+我们还学习了framebuffer和renderbuffer之间的区别。我们看到renderbuffer是一个和framebuffer绑定的特殊buffer，它被用于存储不能用纹理表示的信息（如深度值）。相对的是，纹理可用于存储颜色。
+
+另外一个framebuffer至少要一个纹理存储颜色，一个renderbuffer存储深度信息。
+
+我们讨论了如何将点击坐标转换为canvas中的坐标。framebuffer和canvas的坐标系都是以左上角为(0,0)原点。
+
+另外我们还讨论了picker的实现架构。我们看到选取分为不同的状态，并且每个状态都有一个回调函数。picker回调允许我们在选取进行时实现自己的逻辑。
+
+在下章中，我们将开发一个汽车展览室。我们将学习如何将车的模型从Blender中导入到WebGL。
 				
 
 
